@@ -10,7 +10,7 @@ from report import report_bp, generate_feedback_summary
 from real_time_feedback import real_time_feedback_bp
 from feedback_processor import feedback_processor_bp
 
-
+# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
@@ -19,7 +19,6 @@ app = Flask(__name__)
 app.register_blueprint(report_bp, url_prefix='/report')
 app.register_blueprint(real_time_feedback_bp, url_prefix="/real_time_feedback")
 app.register_blueprint(feedback_processor_bp, url_prefix='/feedback_processor')
-
 
 # Configure logging
 logging.basicConfig(
@@ -131,4 +130,6 @@ def summarize_feedback():
         }), 500
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Get the port from the environment variable (default is 5000 if not set)
+    port = int(os.getenv("FLASK_PORT", 5000))
+    app.run(debug=True, port=port)
