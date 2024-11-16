@@ -2,3 +2,4 @@ Flask
 python-dotenv
 groq
 google-generativeai
+pandas
