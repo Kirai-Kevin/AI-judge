@@ -90,26 +90,47 @@ def generate_summary(feedback_list):
 @app.route("/summarize_feedback", methods=["POST"])
 def summarize_feedback():
     """
-    API endpoint to summarize feedback using Groq with retry handling.
+    API endpoint to summarize feedback, accepting any format (JSON, plain text, or form-encoded data).
     """
     try:
+        feedback_list = None
+
+        # Check if the request has JSON data
         if request.is_json:
-            data = request.json
+            data = request.get_json()
             feedback_list = data.get("feedback")
-        else:
+
+        # Check if plain text or form-encoded data is provided
+        elif request.data:
             feedback_list = request.data.decode('utf-8')
 
+        # Handle form-encoded data (e.g., x-www-form-urlencoded)
+        elif request.form:
+            feedback_list = request.form.get("feedback")
+
+        # If feedback is not provided in any format
         if not feedback_list:
             return jsonify({"error": "No feedback provided"}), 400
-        if not isinstance(feedback_list, (str, list)):
-            return jsonify({"error": "Feedback must be a string or list"}), 400
 
+        # Normalize feedback to a string
         if isinstance(feedback_list, list):
             feedback_list = "\n".join(str(item) for item in feedback_list)
 
+        # Generate summary
         try:
-            summary = generate_feedback_summary({"high_level": feedback_list, "problem": "", "solution": "", "innovation": "", "team": "", "business_model": "", "market_opportunity": "", "technical_feasibility": "", "execution_strategy": "", "communication": ""})
-            
+            summary = generate_feedback_summary({
+                "high_level": feedback_list,
+                "problem": "",
+                "solution": "",
+                "innovation": "",
+                "team": "",
+                "business_model": "",
+                "market_opportunity": "",
+                "technical_feasibility": "",
+                "execution_strategy": "",
+                "communication": ""
+            })
+
             return jsonify({
                 "summary": summary,
                 "status": "success"
