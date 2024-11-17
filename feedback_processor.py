@@ -88,10 +88,25 @@ feedback_processor = FeedbackProcessor(api_key=os.environ.get('GROQ_API_KEY'))
 @feedback_processor_bp.route('/process_feedback', methods=['POST'])
 def process_startup_feedback():
     """
-    Process feedback for a startup using the `FeedbackProcessor` instance
+    Process feedback for a startup using the `FeedbackProcessor` instance.
+    Accepts data in JSON, plain text, or form data formats.
     """
     try:
-        data = request.json
+        # Check the Content-Type of the request
+        if request.is_json:
+            data = request.json
+        elif request.content_type == 'application/x-www-form-urlencoded':
+            data = request.form.to_dict(flat=True)
+        else:
+            # For plain text or other formats
+            raw_data = request.data.decode('utf-8')
+            try:
+                # Attempt to parse as JSON
+                data = json.loads(raw_data)
+            except json.JSONDecodeError:
+                return jsonify({"error": "Unsupported data format. Provide valid JSON or form data."}), 400
+
+        # Extract startup data and judge feedback
         startup_data = data.get("startup_data")
         judge_feedback = data.get("judge_feedback")
 
@@ -100,11 +115,11 @@ def process_startup_feedback():
 
         # Use the FeedbackProcessor instance to process feedback
         result = feedback_processor.process_startup_feedback(startup_data, judge_feedback)
-        
         return jsonify(result), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @feedback_processor_bp.route('/submit_feedback', methods=['POST'])
 def submit_feedback():
