@@ -93,15 +93,14 @@ def summarize_feedback():
     API endpoint to summarize feedback using Groq with retry handling.
     """
     try:
-        if not request.is_json:
-            return jsonify({"error": "Request must be JSON"}), 400
+        if request.is_json:
+            data = request.json
+            feedback_list = data.get("feedback")
+        else:
+            feedback_list = request.data.decode('utf-8')
 
-        data = request.json
-        feedback_list = data.get("feedback")
-        
         if not feedback_list:
             return jsonify({"error": "No feedback provided"}), 400
-        
         if not isinstance(feedback_list, (str, list)):
             return jsonify({"error": "Feedback must be a string or list"}), 400
 
