@@ -84,19 +84,64 @@ class StartupRankingProcessor:
         except Exception as e:
             return f"Error generating analysis: {str(e)}"
 
+    def summarize_judge_feedback(self, judge_feedback: Dict) -> str:
+        """Generate a summary for individual judge feedback"""
+        feedback_text = judge_feedback.get('feedback', '').strip()
+        
+        if not feedback_text:
+            return "No specific feedback provided."
+        
+        prompt = f"""
+        Distill the key insights from this judge's feedback into a concise 2-3 sentence summary:
+
+        {feedback_text}
+
+        Focus on:
+        - Most significant strengths
+        - Critical areas for improvement
+        - Any standout observations
+
+        Respond with only the summary, avoiding any introductory phrases.
+        """
+        
+        try:
+            response = self.client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama3-8b-8192",
+            )
+            summary = response.choices[0].message.content.strip()
+            
+            # Final cleaning to remove any remaining introductory text
+            summary = re.sub(r'^(here|the|this|in)\s+(is\s+)?(a\s+)?(summary|key\s+points?):?\s*', '', summary, flags=re.IGNORECASE).strip()
+            
+            # Ensure we have a meaningful summary
+            if not summary:
+                return "Concise observations were not generated."
+            
+            return self.clean_analysis_text(summary)
+        except Exception as e:
+            return f"Error generating summary: {str(e)}"
+
     def process_rankings(self, startup_feedback_list: List[Dict]) -> pd.DataFrame:
-        """Process all startup feedback and create rankings"""
+        """Process all startup feedback and create rankings with judge feedback summaries"""
         rankings_data = []
         
         for startup_data in startup_feedback_list:
             startup_name = startup_data.get('startup_name', 'Unknown')
             judges_feedback = startup_data.get('judges_feedback', [])
             
-            # Average scores across judges
+            # Process individual judge feedback first
+            judge_summaries = []
+            for i, judge in enumerate(judges_feedback, 1):
+                summary = self.summarize_judge_feedback(judge)
+                # Only include "Judge X:" prefix here
+                judge_summaries.append(f"Judge {i}: {summary}")
+            
+            # Average scores across judges and round to 2 decimal places
             aggregated_scores = {}
             for category in self.category_weights.keys():
                 scores = [judge.get('scores', {}).get(category, 0) for judge in judges_feedback]
-                aggregated_scores[category] = np.mean(scores) if scores else 0
+                aggregated_scores[category] = round(np.mean(scores), 2) if scores else 0
             
             # Calculate weighted score
             weighted_score = self.calculate_weighted_score(aggregated_scores)
@@ -110,6 +155,7 @@ class StartupRankingProcessor:
                 'Overall Score': weighted_score,
                 'Rank': None,  # Will be filled later
                 'AI Analysis': ai_analysis,
+                'Judge Feedback Summaries': '\n\n'.join(judge_summaries),
                 **aggregated_scores  # Include individual category scores
             })
         
@@ -118,11 +164,21 @@ class StartupRankingProcessor:
         df = df.sort_values('Overall Score', ascending=False)
         df['Rank'] = range(1, len(df) + 1)
         
+        # Round all numeric columns to 2 decimal places
+        numeric_columns = ['Overall Score'] + list(self.category_weights.keys())
+        df[numeric_columns] = df[numeric_columns].round(2)
+        
+        # Reorder columns to put summaries after scores
+        columns = ['Rank', 'Startup Name', 'Overall Score']
+        score_columns = list(self.category_weights.keys())
+        summary_columns = ['AI Analysis', 'Judge Feedback Summaries']
+        df = df[columns + score_columns + summary_columns]
+        
         return df
 
 @rankings_bp.route('/download_rankings', methods=['POST'])
 def download_rankings():
-    """Generate and download CSV file with startup rankings"""
+    """Generate and download CSV file with startup rankings and feedback summaries"""
     try:
         # Get startup feedback data from request
         data = request.json
@@ -138,8 +194,8 @@ def download_rankings():
         # Create temporary file
         temp_file = NamedTemporaryFile(delete=False, suffix='.csv')
         
-        # Save to CSV
-        rankings_df.to_csv(temp_file.name, index=False)
+        # Save to CSV with specific encoding for special characters
+        rankings_df.to_csv(temp_file.name, index=False, encoding='utf-8-sig')
         
         # Generate filename with timestamp
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

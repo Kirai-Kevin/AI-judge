@@ -63,7 +63,7 @@ class TestRankingsAPI:
         except Exception as e:
             return False, str(e)
 
-# Example payload for testing
+# Adjusted payload for testing
 test_payload = {
     "startup_feedback": [
         {
@@ -96,6 +96,20 @@ test_payload = {
                         "communication": 8
                     },
                     "feedback": "Excellent problem definition and solution, but refine execution strategy."
+                },
+                {
+                    "scores": {
+                        "problem": 8,
+                        "solution": 7,
+                        "innovation": 8,
+                        "team": 8,
+                        "business_model": 7,
+                        "market_opportunity": 7,
+                        "technical_feasibility": 7,
+                        "execution_strategy": 7,
+                        "communication": 6
+                    },
+                    "feedback": "Good potential but needs refinement in execution strategy."
                 }
             ]
         },
@@ -115,6 +129,81 @@ test_payload = {
                         "communication": 6
                     },
                     "feedback": "Solid innovation but weak business model and communication."
+                },
+                {
+                    "scores": {
+                        "problem": 8,
+                        "solution": 7,
+                        "innovation": 7,
+                        "team": 8,
+                        "business_model": 7,
+                        "market_opportunity": 8,
+                        "technical_feasibility": 7,
+                        "execution_strategy": 8,
+                        "communication": 7
+                    },
+                    "feedback": "Improved communication but needs stronger business model."
+                },
+                {
+                    "scores": {
+                        "problem": 6,
+                        "solution": 6,
+                        "innovation": 7,
+                        "team": 7,
+                        "business_model": 6,
+                        "market_opportunity": 6,
+                        "technical_feasibility": 6,
+                        "execution_strategy": 7,
+                        "communication": 7
+                    },
+                    "feedback": "Decent execution but lacking in innovation and market opportunity."
+                }
+            ]
+        },
+        {
+            "startup_name": "FutureTech",
+            "judges_feedback": [
+                {
+                    "scores": {
+                        "problem": 8,
+                        "solution": 8,
+                        "innovation": 9,
+                        "team": 8,
+                        "business_model": 8,
+                        "market_opportunity": 8,
+                        "technical_feasibility": 8,
+                        "execution_strategy": 8,
+                        "communication": 8
+                    },
+                    "feedback": "Well-rounded startup with excellent potential."
+                },
+                {
+                    "scores": {
+                        "problem": 9,
+                        "solution": 9,
+                        "innovation": 9,
+                        "team": 9,
+                        "business_model": 9,
+                        "market_opportunity": 9,
+                        "technical_feasibility": 9,
+                        "execution_strategy": 9,
+                        "communication": 9
+                    },
+                    "feedback": "Outstanding in all categories, a top performer."
+                },
+                {
+                    "scores": {
+                        "problem": 8,
+                        "solution": 7,
+                        "innovation": 8,
+                        "team": 7,
+                        "business_model": 7,
+                        "market_opportunity": 7,
+                        "technical_feasibility": 7,
+                        "execution_strategy": 7,
+                        "communication": 6
+                    },
+                    "feedback": "Good overall but needs stronger communication."
                 }
             ]
         }
