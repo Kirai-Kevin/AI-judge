@@ -14,6 +14,7 @@ import io
 from report import report_bp, generate_feedback_summary
 from real_time_feedback import real_time_feedback_bp
 from feedback_processor import feedback_processor_bp
+from rankings import rankings_bp 
 
 # Load environment variables from .env file
 load_dotenv()
@@ -24,6 +25,8 @@ app = Flask(__name__)
 app.register_blueprint(report_bp, url_prefix='/report')
 app.register_blueprint(real_time_feedback_bp, url_prefix="/real_time_feedback")
 app.register_blueprint(feedback_processor_bp, url_prefix='/feedback_processor')
+app.register_blueprint(rankings_bp, url_prefix='/rankings') 
+
 
 # Configure logging
 logging.basicConfig(
