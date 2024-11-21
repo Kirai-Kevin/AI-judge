@@ -25,7 +25,6 @@ class StartupRankingProcessor:
             'communication': 0.05
         }
         
-        # Define detailed subcategories for comprehensive output
         self.comprehensive_columns = {
             'Problem': [
                 'Is there a clear problem?',
@@ -90,76 +89,116 @@ class StartupRankingProcessor:
             return self._process_summary_rankings(startup_feedback_list)
 
     def _process_summary_rankings(self, startup_feedback_list: List[Dict]) -> pd.DataFrame:
-        """Process rankings for summary output"""
         rankings_data = []
         
         for startup_data in startup_feedback_list:
+            startup_id = startup_data.get('startup_id')
+            if not startup_id:
+                continue  # Skip entries without startup_id
+                
             startup_name = startup_data.get('startup_name', 'Unknown')
             judges_feedback = startup_data.get('judges_feedback', [])
             
-            # Process judge summaries
-            judge_summaries = []
-            for i, judge in enumerate(judges_feedback, 1):
-                summary = self.summarize_judge_feedback(judge)
-                judge_summaries.append(f"Judge {i}: {summary}")
+            # Calculate nomination and interest counts from judges_feedback
+            nomination_count = sum(1 for judge in judges_feedback if judge.get('nominated_for_next_round', False))
+            mentor_interest_count = sum(1 for judge in judges_feedback if judge.get('mentor_interest', False))
+            hero_meetings_count = sum(1 for judge in judges_feedback if judge.get('hero_want_to_meet', False))
             
-            # Aggregate scores
-            aggregated_scores = {}
-            for category in self.category_weights.keys():
-                scores = [judge.get('scores', {}).get(category, 0) for judge in judges_feedback]
-                aggregated_scores[category] = round(np.mean(scores), 2) if scores else 0
+            judge_summaries = []
+            subcategory_avg_scores = {}
+            
+            # Prepare aggregated scores dictionary
+            aggregated_scores = {category: 0 for category in self.category_weights.keys()}
+            
+            for judge in judges_feedback:
+                judge_id = judge.get('judge_id')
+                if not judge_id:
+                    continue  # Skip entries without judge_id
+                    
+                summary = self.summarize_judge_feedback(judge)
+                judge_summaries.append(f"Judge {judge_id}: {summary}")
+                
+                # Aggregate category scores
+                for category in aggregated_scores.keys():
+                    score = judge.get('scores', {}).get(category, 0)
+                    aggregated_scores[category] = score
             
             # Calculate weighted score
             weighted_score = self.calculate_weighted_score(aggregated_scores)
             
             # Combine all feedback for AI analysis
-            combined_feedback = "\n".join([judge.get('feedback', '') for judge in judges_feedback])
-            ai_analysis = self.analyze_feedback(combined_feedback)
+            combined_feedback = "\n".join([f"Judge {judge.get('judge_id', 'Unknown')}: {judge.get('feedback', '')}" 
+                                        for judge in judges_feedback if judge.get('judge_id')])
+            ai_analysis = self.analyze_feedback(combined_feedback) if combined_feedback else "No detailed feedback available."
             
-            rankings_data.append({
+            # Prepare subcategory average scores
+            for category, subcategories in self.comprehensive_columns.items():
+                for subcat_idx, subcat in enumerate(subcategories):
+                    subcategory_key = f"{category} - {subcat}"
+                    scores = [judge.get('detailed_scores', {}).get(category.lower().replace(' ', '_'), {}).get(subcat_idx, 0) 
+                            for judge in judges_feedback if judge.get('judge_id')]
+                    avg_score = round(np.mean(scores), 2) if scores else 0
+                    subcategory_avg_scores[subcategory_key] = avg_score
+            
+            # Use the actual counts instead of converting to boolean
+            ranking_entry = {
+                'Startup ID': startup_id,
                 'Startup Name': startup_name,
                 'Overall Score': weighted_score,
+                'Nominated for Next Round': nomination_count,  # Use actual count
+                'Mentor Interest': mentor_interest_count,      # Use actual count
+                'Heroes Want to Meet': hero_meetings_count,    # Use actual count
                 'Rank': None,
                 'AI Analysis': ai_analysis,
                 'Judge Feedback Summaries': '\n\n'.join(judge_summaries),
-                **aggregated_scores
-            })
+                **aggregated_scores,
+                **subcategory_avg_scores
+            }
+            
+            rankings_data.append(ranking_entry)
         
-        # Create DataFrame and sort by overall score
+        # Create DataFrame and sort
         df = pd.DataFrame(rankings_data)
         df = df.sort_values('Overall Score', ascending=False)
         df['Rank'] = range(1, len(df) + 1)
         
-        # Round numeric columns
-        numeric_columns = ['Overall Score'] + list(self.category_weights.keys())
-        df[numeric_columns] = df[numeric_columns].round(2)
-        
-        # Reorder columns
-        columns = ['Rank', 'Startup Name', 'Overall Score']
-        score_columns = list(self.category_weights.keys())
-        summary_columns = ['AI Analysis', 'Judge Feedback Summaries']
-        df = df[columns + score_columns + summary_columns]
-        
         return df
 
     def _process_comprehensive_rankings(self, startup_feedback_list: List[Dict]) -> pd.DataFrame:
-        """Process rankings for comprehensive output with detailed judge scores and category averages"""
         rankings_data = []
 
         for startup_data in startup_feedback_list:
+            startup_id = startup_data.get('startup_id')
+            if not startup_id:
+                continue  # Skip entries without startup_id
+                
             startup_name = startup_data.get('startup_name', 'Unknown')
             judges_feedback = startup_data.get('judges_feedback', [])
             
             # Track category-level scores across judges
             startup_category_scores = {category: [] for category in self.comprehensive_columns.keys()}
             
-            # Process each judge's feedback separately
-            for judge_idx, judge in enumerate(judges_feedback, 1):
+            # Count total nominations and interest for reference
+            total_nominations = sum(1 for judge in judges_feedback if judge.get('nominated_for_next_round', False))
+            total_mentor_interest = sum(1 for judge in judges_feedback if judge.get('mentor_interest', False))
+            total_hero_meetings = sum(1 for judge in judges_feedback if judge.get('hero_want_to_meet', False))
+            
+            for judge in judges_feedback:
+                judge_id = judge.get('judge_id')
+                if not judge_id:
+                    continue  # Skip entries without judge_id
+                    
                 row_data = {
+                    'Startup ID': startup_id,
                     'Startup Name': startup_name,
-                    'Judge Number': judge_idx,
+                    'Judge ID': judge_id,
                     'Overall Judge Score': 0
                 }
+                
+                # Set individual judge's nomination status as boolean
+                row_data['Nominated for Next Round'] = bool(judge.get('nominated_for_next_round', False))
+                row_data['Mentor Interest'] = bool(judge.get('mentor_interest', False))
+                row_data['Heroes Want to Meet'] = bool(judge.get('hero_want_to_meet', False))
                 
                 # Calculate scores for each category and subcategory
                 overall_judge_scores = []
@@ -168,10 +207,8 @@ class StartupRankingProcessor:
                     category_key = category.lower().replace(' ', '_')
                     judge_detailed_scores = judge.get('detailed_scores', {}).get(category_key, {})
                     
-                    # Calculate average for this category for this judge
                     category_scores = []
                     
-                    # Process each subcategory for this judge
                     for subcat_idx, subcat in enumerate(subcategories):
                         col_name = f"{category} - {subcat}"
                         score = judge_detailed_scores.get(subcat_idx, 0)
@@ -179,57 +216,46 @@ class StartupRankingProcessor:
                         category_scores.append(score)
                         overall_judge_scores.append(score)
                     
-                    # Average score for this category
                     if category_scores:
                         category_avg = round(np.mean(category_scores), 2)
                         row_data[f'{category} Overall Score'] = category_avg
                         startup_category_scores[category].append(category_avg)
                 
-                # Calculate overall judge score
                 if overall_judge_scores:
                     row_data['Overall Judge Score'] = round(np.mean(overall_judge_scores), 2)
                 
-                # Add startup's overall performance metrics
                 row_data['Startup Overall Score'] = round(row_data['Overall Judge Score'] / 10, 2)
                 
                 rankings_data.append(row_data)
-            
-            # Add startup-level category average scores
-            for category, scores in startup_category_scores.items():
-                if scores:
-                    startup_avg_score = round(np.mean(scores), 2)
-                    for row in rankings_data:
-                        if row['Startup Name'] == startup_name:
-                            row[f'Startup {category} Overall Score'] = startup_avg_score
         
         # Create DataFrame
         df = pd.DataFrame(rankings_data)
 
-        # Sort by startup's overall score and then by judge number
-        df = df.sort_values(['Startup Overall Score', 'Startup Name', 'Judge Number'], 
+        # Sort by startup's overall score and then by startup ID and judge ID
+        df = df.sort_values(['Startup Overall Score', 'Startup ID', 'Judge ID'], 
                             ascending=[False, True, True])
 
-        # Add overall startup rank (based on average of all judges)
-        startup_avg_scores = df.groupby('Startup Name')['Overall Judge Score'].mean().reset_index()
+        # Add overall startup rank
+        startup_avg_scores = df.groupby(['Startup ID', 'Startup Name'])['Overall Judge Score'].mean().reset_index()
         startup_avg_scores = startup_avg_scores.sort_values('Overall Judge Score', ascending=False)
         startup_avg_scores['Startup Rank'] = range(1, len(startup_avg_scores) + 1)
 
         # Merge ranks back to the main dataframe
-        df = df.merge(startup_avg_scores[['Startup Name', 'Startup Rank']], on='Startup Name', how='left')
+        df = df.merge(startup_avg_scores[['Startup ID', 'Startup Rank']], on='Startup ID', how='left')
 
-        # Reorder columns to make it more readable
-        columns_order = ['Startup Rank', 'Startup Name', 'Judge Number', 'Overall Judge Score', 'Startup Overall Score']
-        
-        # Add category-level overall scores to columns order
+        # Reorder columns
+        columns_order = ['Startup Rank', 'Startup ID', 'Startup Name', 'Judge ID', 'Overall Judge Score', 
+                        'Startup Overall Score', 'Nominated for Next Round', 
+                        'Mentor Interest', 'Heroes Want to Meet']
+
         category_overall_scores = [col for col in df.columns if col.startswith('Startup ') and col.endswith('Overall Score')]
         columns_order.extend(sorted(category_overall_scores))
         
-        # Add detailed columns
         detailed_columns = [col for col in df.columns if col not in columns_order]
         columns_order.extend(sorted(detailed_columns))
 
         df = df[columns_order]
-
+        
         return df
 
     def analyze_feedback(self, feedback: str) -> str:

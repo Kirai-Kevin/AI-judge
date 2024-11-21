@@ -4,4 +4,4 @@ groq
 google-generativeai
 pandas
 python-docx
-numpy  # Add this
+numpy  

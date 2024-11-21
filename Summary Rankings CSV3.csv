@@ -1,0 +1,40 @@
+﻿Startup ID,Startup Name,Overall Score,Nominated for Next Round,Mentor Interest,Heroes Want to Meet,Rank,AI Analysis,Judge Feedback Summaries,problem,solution,innovation,team,business_model,market_opportunity,technical_feasibility,execution_strategy,communication,Problem - Is there a clear problem?,Problem - Is there evidence to support the importance of the problem?,Problem - Is the problem solvable?,Problem - How obsessed is the team with solving the problem?,Solution - Does the solution make sense?,Solution - Is there a clear vision of what the solution should be?,Solution - Is the solution innovative?,Solution - Is the solution feasible?,Innovation - Is the innovation significant?,Innovation - Does it create new opportunities?,Innovation - Is it differentiated from existing solutions?,Team - Does the team have relevant experience?,Team - Is the team composition balanced?,Team - Do they show strong leadership potential?,Business Model - Is the business model clear?,Business Model - Is it scalable?,Business Model - Are the revenue streams well-defined?,Market Opportunity - Is the market size significant?,Market Opportunity - Is the growth potential strong?,Market Opportunity - Is the competitive advantage sustainable?,Technical Feasibility - Is the technical approach sound?,Technical Feasibility - Are the technical challenges well understood?,Technical Feasibility - Does the team have the technical capability?
+ST001,EcoTech Solutions,8.75,2,2,2,1,"STRENGTHS:
+1. Revolutionary approach to waste management
+2. Strong technical team with proven track record
+
+AREAS FOR IMPROVEMENT:
+1. Market entry strategy needs refinement
+2. Revenue model could be more detailed
+
+RECOMMENDATIONS:
+1. Develop detailed pilot program with initial customers
+2. Strengthen partnership strategy for market expansion","Judge 1: Strong technical solution with clear market potential. Team demonstrates deep domain expertise. Could improve go-to-market strategy.
+
+Judge 2: Impressive technology stack and market understanding. Revenue projections need more detail. Team shows great promise.",9.0,9.0,8.5,8.5,8.0,9.0,9.0,8.5,8.0,9.0,9.0,9.0,9.0,9.0,9.0,9.0,9.0,8.5,8.5,8.5,8.5,8.5,8.5,8.0,8.0,8.0,9.0,9.0,9.0,9.0,9.0,9.0
+ST002,AI Health Platform,8.45,2,2,0,2,"STRENGTHS:
+1. Innovative AI application in healthcare
+2. Clear market need and value proposition
+
+AREAS FOR IMPROVEMENT:
+1. Technical implementation timeline needs detail
+2. Data security concerns need addressing
+
+RECOMMENDATIONS:
+1. Develop comprehensive security protocol
+2. Create detailed technical roadmap","Judge 1: Innovative healthcare solution with strong market potential. Need more clarity on data security.
+
+Judge 2: Excellent AI application with clear benefits. Implementation timeline needs more detail.",8.5,8.5,9.0,8.0,8.0,8.5,8.5,8.0,7.5,8.5,8.5,8.5,8.5,8.5,8.5,9.0,8.0,9.0,9.0,9.0,8.0,8.0,8.0,8.0,8.0,8.0,8.5,8.5,8.5,8.5,8.5,8.5
+ST003,FinTech Revolution,8.15,0,2,2,3,"STRENGTHS:
+1. Disruptive approach to financial services
+2. Strong revenue model
+
+AREAS FOR IMPROVEMENT:
+1. Regulatory compliance framework
+2. Team needs financial sector expertise
+
+RECOMMENDATIONS:
+1. Add advisory board with industry veterans
+2. Develop detailed compliance strategy","Judge 1: Innovative financial solution but needs stronger regulatory framework.
+
+Judge 2: Excellent business model, team could benefit from more sector expertise.",8.0,8.5,8.0,7.5,8.5,8.0,8.0,7.5,7.0,8.0,8.0,8.0,8.0,8.5,8.5,8.0,8.5,8.0,8.0,8.0,7.5,7.5,7.5,8.5,8.5,8.5,8.0,8.0,8.0,8.0,8.0,8.0
