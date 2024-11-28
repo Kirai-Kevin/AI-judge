@@ -1,17 +1,15 @@
 import os
 import textwrap
 from flask import Blueprint
-from groq import Groq
+import groq
 from dotenv import load_dotenv
 
 # Create a blueprint
 report_bp = Blueprint('report', __name__)
 load_dotenv()
 
-
-
 # Groq API setup
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+client = groq.Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 # Function to clean up the AI response
 def clean_ai_response(response: str) -> str:
@@ -87,4 +85,3 @@ def generate_summary():
     except Exception as e:
         from flask import jsonify
         return jsonify({"error": str(e)}), 500
-
