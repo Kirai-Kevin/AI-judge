@@ -1,8 +1,8 @@
 import os
 import textwrap
 from flask import Blueprint
-from groq.client import Groq
-from dotenv import load_dotenv
+from groq import AsyncGroq, Groq
+from dotenv import load_dotenv 
 
 # Create a blueprint
 report_bp = Blueprint('report', __name__)

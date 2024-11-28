@@ -5,7 +5,7 @@ from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import random
-from groq.client import Groq
+from groq import AsyncGroq, Groq
 from functools import wraps
 from dotenv import load_dotenv
 import time
