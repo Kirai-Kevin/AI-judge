@@ -1,29 +1,139 @@
-# team-tuki
-
-# AI Judge API Documentation
+# AI-Judge: Startup Evaluation Platform
 
 ## Overview
-This API provides endpoints for an AI-based startup judging system that evaluates and provides feedback for startup pitches and submissions.
+AI-Judge is a comprehensive platform for evaluating and ranking startup pitches using AI-powered analysis and a detailed scoring system.
 
-## Base URL
-When deployed, the API will be accessible at:
-https://[your-domain]/api/v1
+## Features
+- Automated startup evaluation across 9 key categories
+- AI-powered real-time feedback generation
+- Comprehensive scoring system with weighted categories
+- Detailed report generation with scoring breakdowns
+- Structured input format for consistent evaluations
 
-## Authentication
-All requests must include an API key in the header:
-Authorization: Bearer YOUR_API_KEY
+## Input Format
+Each startup evaluation should include feedback for the following categories:
 
-## Endpoints
+1. Problem (10%)
+   - Clear problem identification
+   - Evidence of importance
+   - Problem solvability
+   - Team's problem obsession
 
-### 1. Report Generation
-**Endpoint:** `/report/generate_summary`
+2. Solution (10%)
+   - Solution coherence
+   - Clear vision
+   - Technical feasibility
+
+3. Innovation (10%)
+   - AI application novelty
+   - Unique problem-solving approach
+
+4. Team (20%)
+   - Skills and expertise
+   - Leadership quality
+   - Team dynamics
+   - Agility and adaptability
+
+5. Business Model (10%)
+   - Revenue model viability
+   - Business model clarity
+
+6. Market Opportunity (10%)
+   - Market size assessment
+   - Growth potential
+   - Competition analysis
+
+7. Technical Feasibility (10%)
+   - Technical implementation viability
+   - Resource requirements
+
+8. Execution Strategy (10%)
+   - Implementation plan
+   - Risk management
+
+9. Communication (10%)
+   - Pitch clarity
+   - Presentation quality
+   - Response effectiveness
+
+## Setup
+1. Clone the repository
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+3. Set up environment variables in `.env`:
+```
+GROQ_API_KEY=your_groq_api_key
+```
+
+## API Endpoints
+
+### 1. Rankings Endpoints
+**Base Path:** `/rankings`
+
+#### Generate Rankings
+**Endpoint:** `/rankings/generate`
 **Method:** POST
-
-**Request Body:**
 ```json
 {
-    "feedback": {
-        "high_level": "string",
+    "startup_name": "string",
+    "evaluations": {
+        "problem": {
+            "clear_problem": 1-10,
+            "evidence": 1-10,
+            "solvability": 1-10,
+            "team_obsession": 1-10
+        },
+        "solution": {
+            "coherence": 1-10,
+            "vision": 1-10,
+            "feasibility": 1-10
+        },
+        // ... similar format for other categories
+    }
+}
+```
+
+#### Download Rankings
+**Endpoint:** `/rankings/download`
+**Method:** GET
+Downloads a CSV file containing all startup rankings and scores
+
+### 2. Real-time Feedback Endpoints
+**Base Path:** `/real_time_feedback`
+
+#### Submit Feedback
+**Endpoint:** `/real_time_feedback/submit`
+**Method:** POST
+```json
+{
+    "startup_name": "string",
+    "feedback_text": "string",
+    "category": "string"  // One of: problem, solution, innovation, etc.
+}
+```
+
+#### Get Real-time Analysis
+**Endpoint:** `/real_time_feedback/analyze`
+**Method:** POST
+```json
+{
+    "feedback": "string",
+    "context": "string"  // Optional additional context
+}
+```
+
+### 3. Report Endpoints
+**Base Path:** `/report`
+
+#### Generate Report
+**Endpoint:** `/report/generate`
+**Method:** POST
+```json
+{
+    "startup_name": "string",
+    "feedback_data": {
         "problem": "string",
         "solution": "string",
         "innovation": "string",
@@ -37,115 +147,72 @@ Authorization: Bearer YOUR_API_KEY
 }
 ```
 
-**Response:**
-```json
-{
-    "summary": "string"    // AI-generated summary of the feedback
-}
-```
-
-### 2. Real-time Feedback
-**Endpoint:** `/real_time_feedback/submit_feedback`
+#### Generate Summary
+**Endpoint:** `/report/generate_summary`
 **Method:** POST
-
-**Request Body:**
 ```json
 {
-    "feedback": "string"    // Detailed feedback text
+    "feedback": {
+        "high_level": "string",
+        "detailed_feedback": {
+            "strengths": ["string"],
+            "weaknesses": ["string"],
+            "recommendations": ["string"]
+        }
+    }
 }
 ```
 
-**Response:**
-```json
-{
-    "feedback_analysis": "string"    // AI-generated analysis of strengths and weaknesses
-}
-```
+### 4. Feedback Processor Endpoints
+**Base Path:** `/feedback_processor`
 
-### 3. Feedback Processor
-**Endpoint:** `/feedback_processor/process_feedback`
+#### Process Feedback
+**Endpoint:** `/feedback_processor/process`
 **Method:** POST
-
-**Request Body:**
 ```json
 {
     "startup_data": {
         "name": "string",
-        "description": "string"
+        "pitch_text": "string"
     },
-    "judge_feedback": [
-        {
-            "score": "number",
-            "comment": "string"
-        }
-    ]
+    "feedback_items": [{
+        "category": "string",
+        "score": number,
+        "comments": "string"
+    }]
 }
 ```
 
-**Response:**
+#### Aggregate Feedback
+**Endpoint:** `/feedback_processor/aggregate`
+**Method:** POST
 ```json
 {
-    "startup_name": "string",
-    "analysis": "string",
-    "aggregate_scores": ["number"],
-    "detailed_feedback": ["string"]
+    "startup_id": "string",
+    "feedback_entries": [{
+        "judge_id": "string",
+        "scores": {
+            "category": number
+        },
+        "comments": "string"
+    }]
 }
 ```
 
-### 4. Rankings
-**Endpoint:** `/rankings/download_rankings`
-**Method:** GET
+## Dependencies
+- Flask: Web framework
+- Groq: AI-powered analysis
+- pandas: Data processing
+- python-docx: Report generation
+- numpy: Numerical computations
+- Additional utilities (see requirements.txt)
 
-**Query Parameters:**
-```json
-{
-    "comprehensive": "boolean"    // Optional: Get comprehensive rankings
-}
-```
+## Development Status
+- Core scoring system implemented
+- AI feedback generation
+- Basic API endpoints
+- Testing suite
+- Error handling improvements
 
-**Response:**
-- Returns a CSV file with startup rankings
-- File includes:
-  * Startup ID
-  * Startup Name
-  * Overall Score
-  * Category Scores (Problem, Solution, Innovation, etc.)
-  * Judge Feedback
-  * AI Analysis
-
-## Scoring Categories and Weights
-The ranking system uses the following categories and weights:
-- Problem (15%)
-- Solution (15%)
-- Innovation (12%)
-- Team (12%)
-- Business Model (12%)
-- Market Opportunity (12%)
-- Technical Feasibility (10%)
-- Execution Strategy (7%)
-- Communication (5%)
-
-## Error Responses
-All endpoints may return the following error responses:
-
-```json
-{
-    "error": "string",         // Error description
-    "status_code": "number"    // HTTP status code
-}
-```
-
-Common status codes:
-- 400: Bad Request
-- 401: Unauthorized
-- 404: Not Found
-- 500: Internal Server Error
-
-## Environment Variables
-The following environment variable must be set:
-```
-GROQ_API_KEY=your_groq_api_key    // Required for AI analysis
-```
-
-## Contact
-For any technical issues or questions, please contact the development team.
+## Contributing
+Contributions are welcome! Please follow the standard pull request process.

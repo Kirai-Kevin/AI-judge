@@ -14,15 +14,15 @@ class StartupRankingProcessor:
     def __init__(self, api_key: str):
         self.client = Groq(api_key=api_key)
         self.category_weights = {
-            'problem': 0.15,
-            'solution': 0.15,
-            'innovation': 0.12,
-            'team': 0.12,
-            'business_model': 0.12,
-            'market_opportunity': 0.12,
+            'problem': 0.10,
+            'solution': 0.10,
+            'innovation': 0.10,
+            'team': 0.20,
+            'business_model': 0.10,
+            'market_opportunity': 0.10,
             'technical_feasibility': 0.10,
-            'execution_strategy': 0.07,
-            'communication': 0.05
+            'execution_strategy': 0.10,
+            'communication': 0.10
         }
         
         self.comprehensive_columns = {
@@ -30,38 +30,44 @@ class StartupRankingProcessor:
                 'Is there a clear problem?',
                 'Is there evidence to support the importance of the problem?',
                 'Is the problem solvable?',
-                'How obsessed is the team with solving the problem?'
+                'How obsessed is the team on the problem?'
             ],
             'Solution': [
                 'Does the solution make sense?',
                 'Is there a clear vision of what the solution should be?',
-                'Is the solution innovative?',
-                'Is the solution feasible?'
+                'Is the solution feasible to be developed by the team?'
             ],
             'Innovation': [
-                'Is the innovation significant?',
-                'Does it create new opportunities?',
-                'Is it differentiated from existing solutions?'
+                'How novel is the proposed AI application?',
+                'Does it solve a problem in a new or unique way?'
             ],
             'Team': [
-                'Does the team have relevant experience?',
-                'Is the team composition balanced?',
-                'Do they show strong leadership potential?'
+                'Does the team have the necessary skills and expertise to execute their vision or to build a startup from scratch to success?',
+                'Do they have strong leadership',
+                'Is there good team dynamics and teamwork?',
+                'Does the team show itself to have agility and adaptability to adjust to challenges they might face?'
             ],
             'Business Model': [
-                'Is the business model clear?',
-                'Is it scalable?',
-                'Are the revenue streams well-defined?'
+                'Does the revenue or business model make sense?',
+                'Does the revenue or business model make sense?'
             ],
             'Market Opportunity': [
-                'Is the market size significant?',
-                'Is the growth potential strong?',
-                'Is the competitive advantage sustainable?'
+                'Is there a clear market need for the proposed AI application?',
+                'How large is the potential market?',
+                'How does the team plan to monetize the product?'
             ],
             'Technical Feasibility': [
-                'Is the technical approach sound?',
-                'Are the technical challenges well understood?',
-                'Does the team have the technical capability?'
+                'Is the proposed AI application technically feasible?',
+                'Does the team demonstrate a strong understanding of the AI technology and its capabilities?'
+            ],
+            'Execution Strategy': [
+                'Does the team\'s strategy make sense at this stage?',
+                'Do they have a clear idea on how to grow and scale the company?'
+            ],
+            'Communication': [
+                'Does the team have a clear vision?',
+                'Was the pitch clear, concise, and engaging?',
+                'Did the team effectively communicate their ideas and address potential concerns?'
             ]
         }
 
