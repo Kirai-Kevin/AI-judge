@@ -17,6 +17,9 @@ A flexible, AI-powered platform for comprehensive startup pitch assessments with
 - [Testing](#testing)
 - [Error Handling](#error-handling)
 - [Security](#security)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
@@ -307,6 +310,51 @@ The system handles various error cases:
 - Secure file handling for downloads
 - Error logging without sensitive data
 - Temporary file cleanup
+
+## Deployment
+
+### Requirements
+
+- Python 3.11.7
+- Dependencies listed in requirements.txt
+
+### Environment Variables
+
+Make sure to set the following environment variables in your deployment platform:
+
+```
+GROQ_API_KEY=your_api_key_here
+```
+
+### Platform-Specific Instructions
+
+#### Render
+
+1. Create a new Web Service
+2. Connect your repository
+3. Configure the service:
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `python app.py`
+4. Add environment variables:
+   - Add `GROQ_API_KEY` with your API key
+5. Deploy
+
+#### Railway/Heroku
+
+1. Create a new project
+2. Connect your repository
+3. Add environment variables:
+   - Add `GROQ_API_KEY` with your API key
+4. Deploy
+
+### Troubleshooting
+
+Common deployment issues:
+
+1. **Python Version**: Make sure your deployment platform uses Python 3.11.7 as specified in `runtime.txt`
+2. **Dependencies**: All dependencies are listed with specific versions in `requirements.txt`
+3. **Environment Variables**: Verify that `GROQ_API_KEY` is set correctly
+4. **Port Configuration**: The application will automatically try ports 5000, 5001, 5002, 8080, and 8081
 
 ## Contributing
 

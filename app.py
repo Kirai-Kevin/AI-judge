@@ -279,19 +279,28 @@ def configure_questions():
 
 if __name__ == "__main__":
     try:
-        # Try different ports if default port is in use
-        ports = [5000, 5001, 5002, 8080, 8081]
-        for port in ports:
+        # Get port from environment variable for deployment platforms
+        port = int(os.environ.get("PORT", 5000))
+        
+        # Try different ports if default port is in use (local development)
+        ports = [port] + [p for p in [5000, 5001, 5002, 8080, 8081] if p != port]
+        
+        for try_port in ports:
             try:
-                logging.info(f"Attempting to start server on port {port}")
-                app.run(host="127.0.0.1", port=port, debug=True, threaded=True)
+                logging.info(f"Attempting to start server on port {try_port}")
+                app.run(
+                    host="0.0.0.0",  # Allow external connections
+                    port=try_port,
+                    debug=os.environ.get("FLASK_ENV") == "development"
+                )
                 break
             except OSError as e:
-                if port == ports[-1]:
+                if try_port == ports[-1]:
                     logging.error(f"Could not bind to any ports in {ports}. Error: {str(e)}")
                     raise
                 else:
-                    logging.warning(f"Port {port} is in use, trying next port")
+                    logging.warning(f"Port {try_port} is in use, trying next port")
                     continue
     except Exception as e:
         logging.error(f"Failed to start server: {str(e)}")
+        raise
