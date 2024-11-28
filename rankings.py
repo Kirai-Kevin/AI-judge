@@ -105,23 +105,27 @@ def generate_rankings():
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        # Validate required fields
-        required_fields = ['startupId', 'evaluations']
-        if not all(field in data for field in required_fields):
-            return jsonify({"error": f"Missing required fields: {', '.join(required_fields)}"}), 400
+        # Process the rankings
+        startup_list = [data] if isinstance(data, dict) else data
+        if not startup_list:
+            return jsonify({"error": "No startup data provided"}), 400
 
-        # Process the evaluation
-        startup_list = [data]  # Wrap single startup data in a list
-        rankings_df = ranking_processor.process_rankings(startup_list, comprehensive=True)
-        
-        # Convert DataFrame to JSON
-        rankings_json = rankings_df.to_dict(orient='records')
-        
-        return jsonify({
-            "message": "Rankings generated successfully",
-            "rankings": rankings_json
-        }), 200
-        
+        # Validate required fields
+        for startup in startup_list:
+            if 'startupId' not in startup:
+                return jsonify({"error": "Missing required field: startupId"}), 400
+
+        # Generate both comprehensive and summary rankings
+        try:
+            rankings = ranking_processor.process_rankings(startup_list, comprehensive=True)
+            return jsonify({
+                "message": "Rankings generated successfully",
+                "rankings": rankings.to_dict(orient='records') if not rankings.empty else []
+            })
+        except Exception as e:
+            logger.error(f"Error processing rankings: {str(e)}")
+            return jsonify({"error": f"Error processing rankings: {str(e)}"}), 500
+
     except Exception as e:
         logger.error(f"Error generating rankings: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -176,75 +180,39 @@ class StartupRankingProcessor:
             return self._process_summary_rankings(startup_feedback_list)
 
     def _process_summary_rankings(self, startup_feedback_list: List[Dict]) -> pd.DataFrame:
+        """Process summary rankings from startup feedback"""
         rankings_data = []
         
         for startup_data in startup_feedback_list:
-            startup_id = startup_data.get('startup_id')
+            startup_id = startup_data.get('startupId')
             if not startup_id:
-                continue  # Skip entries without startup_id
-                
-            startup_name = startup_data.get('startup_name', 'Unknown')
-            judges_feedback = startup_data.get('judges_feedback', [])
-            
-            # Calculate nomination and interest counts from judges_feedback
-            nomination_count = sum(1 for judge in judges_feedback if judge.get('nominated_for_next_round', False))
-            mentor_interest_count = sum(1 for judge in judges_feedback if judge.get('mentor_interest', False))
-            hero_meetings_count = sum(1 for judge in judges_feedback if judge.get('hero_want_to_meet', False))
-            
-            judge_summaries = []
-            subcategory_avg_scores = {}
-            
-            # Prepare aggregated scores dictionary
-            aggregated_scores = {category: 0 for category in self.category_weights.keys()}
-            
-            for judge in judges_feedback:
-                judge_id = judge.get('judge_id')
-                if not judge_id:
-                    continue  # Skip entries without judge_id
-                    
-                summary = self.summarize_judge_feedback(judge)
-                judge_summaries.append(f"Judge {judge_id}: {summary}")
-                
-                # Aggregate category scores
-                for category in aggregated_scores.keys():
-                    score = judge.get('scores', {}).get(category, 0)
-                    aggregated_scores[category] = score
-            
-            # Calculate weighted score
-            weighted_score = self.calculate_weighted_score(aggregated_scores)
-            
-            # Combine all feedback for AI analysis
-            combined_feedback = "\n".join([f"Judge {judge.get('judge_id', 'Unknown')}: {judge.get('feedback', '')}" 
-                                        for judge in judges_feedback if judge.get('judge_id')])
-            ai_analysis = self.analyze_feedback(combined_feedback) if combined_feedback else "No detailed feedback available."
-            
-            # Prepare subcategory average scores
-            for category, subcategories in self.questions_config.get('categories', []):
-                for subcat_idx, subcat in enumerate(subcategories.get('questions', [])):
-                    subcategory_key = f"{category} - {subcat['text']}"
-                    scores = [judge.get('detailed_scores', {}).get(category.lower().replace(' ', '_'), {}).get(subcat_idx, 0) 
-                            for judge in judges_feedback if judge.get('judge_id')]
-                    avg_score = round(np.mean(scores), 2) if scores else 0
-                    subcategory_avg_scores[subcategory_key] = avg_score
-            
-            # Use the actual counts instead of converting to boolean
-            ranking_entry = {
+                continue
+
+            # Get basic startup info
+            data = {
                 'Startup ID': startup_id,
-                'Startup Name': startup_name,
-                'Overall Score': weighted_score,
-                'Nominated for Next Round': nomination_count,  # Use actual count
-                'Mentor Interest': mentor_interest_count,      # Use actual count
-                'Heroes Want to Meet': hero_meetings_count,    # Use actual count
-                'Rank': None,
-                'AI Analysis': ai_analysis,
-                'Judge Feedback Summaries': '\n\n'.join(judge_summaries),
-                **aggregated_scores,
-                **subcategory_avg_scores
+                'Judge ID': startup_data.get('judgeId', 'Unknown'),
+                'Overall Score': startup_data.get('averageScore', 0),
+                'Overall Feedback': startup_data.get('feedback', ''),
+                'Nominated': startup_data.get('isNominated', False),
+                'Mentored': startup_data.get('willBeMentored', False),
+                'Meeting Requested': startup_data.get('willBeMet', False)
             }
             
-            rankings_data.append(ranking_entry)
+            # Add round information if available
+            rounds = startup_data.get('individualScores', [])
+            if rounds:
+                latest_round = rounds[-1]  # Get the most recent round
+                data['Round ID'] = latest_round.get('roundId', 'Unknown')
+                data['Round Score'] = latest_round.get('average', 0)
+                data['Round Feedback'] = latest_round.get('feedback', '')
+            
+            rankings_data.append(data)
         
-        # Create DataFrame and sort
+        if not rankings_data:
+            return pd.DataFrame()
+            
+        # Create DataFrame and sort by score
         df = pd.DataFrame(rankings_data)
         df = df.sort_values('Overall Score', ascending=False)
         df['Rank'] = range(1, len(df) + 1)
@@ -252,122 +220,66 @@ class StartupRankingProcessor:
         return df
 
     def _process_comprehensive_rankings(self, startup_feedback_list: List[Dict]) -> pd.DataFrame:
-        rankings_data = []
+        """Process comprehensive rankings with detailed criteria"""
+        all_data = []
         
         for startup_data in startup_feedback_list:
             startup_id = startup_data.get('startupId')
             if not startup_id:
                 continue
                 
-            startup_name = startup_data.get('startup_name', 'Unknown')
-            evaluations = startup_data.get('evaluations', [])
+            base_data = {
+                'Startup ID': startup_id,
+                'Judge ID': startup_data.get('judgeId', 'Unknown'),
+                'Overall Score': startup_data.get('averageScore', 0),
+                'Overall Feedback': startup_data.get('feedback', '')
+            }
             
-            # Process each evaluation round
-            for evaluation in evaluations:
-                round_id = evaluation.get('roundId')
-                responses = evaluation.get('responses', [])
-                
-                row_data = {
-                    'Startup ID': startup_id,
-                    'Startup Name': startup_name,
+            # Process each round
+            for round_data in startup_data.get('individualScores', []):
+                round_id = round_data.get('roundId', 'Unknown')
+                round_base = {
+                    **base_data,
                     'Round ID': round_id,
-                    'Overall Score': 0  # Initialize with default
+                    'Round Average': round_data.get('average', 0),
+                    'Round Feedback': round_data.get('feedback', '')
                 }
                 
-                # Process each question response
-                category_scores = {}
-                for response in responses:
-                    question_id = response.get('questionId')
-                    score = response.get('score', 0)
-                    category_name, question = self._get_question_by_id(question_id)
-                    
-                    if category_name and question:
-                        if category_name not in category_scores:
-                            category_scores[category_name] = []
-                        category_scores[category_name].append(score)
-                        
-                        # Add individual question score
-                        col_name = f"{category_name} - {question['text']}"
-                        row_data[col_name] = score
-                
-                # Calculate category averages and weighted score
-                total_weighted_score = 0
-                total_weight = 0
-                
-                for category in self.questions_config.get('categories', []):
-                    category_name = category['name']
-                    category_weight = category.get('weight', 0)
-                    
-                    if category_name in category_scores and category_scores[category_name]:
-                        avg_score = np.mean(category_scores[category_name])
-                        row_data[f'{category_name} Score'] = round(avg_score, 2)
-                        total_weighted_score += avg_score * category_weight
-                        total_weight += category_weight
-                
-                # Calculate overall score
-                if total_weight > 0:
-                    row_data['Overall Score'] = round(total_weighted_score / total_weight, 2)
-                
-                # Add nomination info
-                nominations = startup_data.get('nominations', {})
-                row_data['Nominated'] = nominations.get('isNominated', False)
-                row_data['Mentored'] = nominations.get('willBeMentored', False)
-                row_data['Meeting Requested'] = nominations.get('willBeMet', False)
-                
-                rankings_data.append(row_data)
+                # Process each criterion
+                for criterion in round_data.get('criteria', []):
+                    criterion_data = {
+                        **round_base,
+                        'Question': criterion.get('question', ''),
+                        'Score': criterion.get('score', 0),
+                        'Skipped': criterion.get('skipped', False)
+                    }
+                    all_data.append(criterion_data)
         
-        # Create DataFrame
-        if not rankings_data:
-            # Return empty DataFrame with expected columns
-            return pd.DataFrame(columns=['Startup ID', 'Startup Name', 'Round ID', 'Overall Score', 
-                                      'Nominated', 'Mentored', 'Meeting Requested'])
-        
-        df = pd.DataFrame(rankings_data)
-        
-        # Sort by overall score and add rank
-        df = df.sort_values('Overall Score', ascending=False)
-        df['Rank'] = range(1, len(df) + 1)
-        
-        # Reorder columns
-        first_columns = ['Rank', 'Startup ID', 'Startup Name', 'Round ID', 'Overall Score']
-        other_columns = [col for col in df.columns if col not in first_columns]
-        df = df[first_columns + sorted(other_columns)]
+        if not all_data:
+            return pd.DataFrame()
+            
+        # Create DataFrame and sort
+        df = pd.DataFrame(all_data)
+        df = df.sort_values(['Overall Score', 'Round Average', 'Score'], ascending=[False, False, False])
         
         return df
 
     def analyze_feedback(self, feedback: str) -> str:
         """Generate AI analysis of the feedback"""
-        # [Previous implementation remains the same]
-        prompt = f"""
-        Analyze the following startup feedback and provide a clear, structured analysis:
-
-        {feedback}
-        
-        Format your response in this style:
-        STRENGTHS:
-        1. [First key strength]
-        2. [Second key strength]
-
-        AREAS FOR IMPROVEMENT:
-        1. [First improvement area]
-        2. [Second improvement area]
-
-        RECOMMENDATIONS:
-        1. [First specific recommendation]
-        2. [Second specific recommendation]
-        
-        Keep the response professional and actionable. Do not use any markdown formatting or special characters.
-        """
-        
         try:
-            response = self.client.chat.completions.create(
+            prompt = f"Analyze the following startup evaluation feedback and provide a concise summary:\n\n{feedback}"
+            completion = self.client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="llama3-8b-8192",
+                model="mixtral-8x7b-32768",
+                temperature=0.7,
+                max_tokens=300,
+                top_p=1,
+                stream=False
             )
-            analysis = response.choices[0].message.content.strip()
-            return self.clean_analysis_text(analysis)
+            return self.clean_analysis_text(completion.choices[0].message.content)
         except Exception as e:
-            return f"Error generating analysis: {str(e)}"
+            logger.error(f"Error generating AI analysis: {str(e)}")
+            return "Error generating analysis"
 
     def summarize_judge_feedback(self, judge_feedback: Dict) -> str:
         """Generate a summary for individual judge feedback"""

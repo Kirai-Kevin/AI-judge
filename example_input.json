@@ -1,60 +1,50 @@
 {
   "startupId": "60d5ec49f8d2c25c24a7f8d5",
   "judgeId": "60d5ec49f8d2c25c24a7f8d6",
-  "evaluationConfig": {
-    "categories": [
-      {
-        "name": "Problem",
-        "weight": 0.10,
-        "questions": [
-          {
-            "id": "prob_1",
-            "text": "Is there a clear problem?",
-            "weight": 0.25
-          },
-          {
-            "id": "prob_2",
-            "text": "Is there evidence to support the importance of the problem?",
-            "weight": 0.25
-          },
-          {
-            "id": "prob_3",
-            "text": "Is the problem solvable?",
-            "weight": 0.25
-          },
-          {
-            "id": "prob_4",
-            "text": "How obsessed is the team on the problem?",
-            "weight": 0.25
-          }
-        ]
-      }
-    ]
-  },
-  "evaluations": [
+  "averageScore": 8.2,
+  "feedback": "The startup has shown great potential in terms of innovation and market opportunity.",
+  "individualScores": [
     {
       "roundId": "60d5ec49f8d2c25c24a7f8d7",
-      "responses": [
+      "average": 8.0,
+      "criteria": [
         {
-          "questionId": "prob_1",
           "score": 9,
-          "feedback": "The problem is clearly articulated and well-defined",
+          "question": "Clear problem identification",
           "skipped": false
         },
         {
-          "questionId": "prob_2",
           "score": 8,
-          "feedback": "Strong market research and user interviews provided",
+          "question": "Solution coherence",
+          "skipped": false
+        },
+        {
+          "score": 7,
+          "question": "Market size assessment",
           "skipped": false
         }
       ],
-      "roundFeedback": "Good understanding of the market size."
+      "feedback": "Good understanding of the market size."
+    },
+    {
+      "roundId": "60d5ec49f8d2c25c24a7f8d8",
+      "average": 8.5,
+      "criteria": [
+        {
+          "score": 9,
+          "question": "Revenue model viability",
+          "skipped": false
+        },
+        {
+          "score": 8,
+          "question": "Technical implementation viability",
+          "skipped": false
+        }
+      ],
+      "feedback": "Strong revenue model and technical implementation."
     }
   ],
-  "overallFeedback": "The startup has shown great potential in terms of innovation and market opportunity.",
-  "nominations": {
-    "isNominated": true,
-    "willBeMentored": false,
-    "willBeMet": true
-  }
+  "isNominated": true,
+  "willBeMentored": false,
+  "willBeMet": true
 }

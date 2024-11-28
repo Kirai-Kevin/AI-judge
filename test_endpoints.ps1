@@ -117,32 +117,180 @@ $evaluationBody = @{
 
 Invoke-APIRequest -Method "POST" -Endpoint "/rankings/generate" -Body $evaluationBody
 
+# Test rankings generation endpoint
+Write-Host "`nTesting POST /rankings/generate"
+$generateBody = @(
+    @{
+        startupId = "test_startup_1"
+        judgeId = "test_judge_1"
+        averageScore = 8.5
+        feedback = "Strong potential in innovation and market opportunity"
+        individualScores = @(
+            @{
+                roundId = "round_1"
+                average = 8.0
+                criteria = @(
+                    @{
+                        score = 9
+                        question = "Clear problem identification"
+                        skipped = $false
+                    }
+                    @{
+                        score = 8
+                        question = "Solution coherence"
+                        skipped = $false
+                    }
+                    @{
+                        score = 7
+                        question = "Market size assessment"
+                        skipped = $false
+                    }
+                )
+                feedback = "Good understanding of the market size."
+            }
+            @{
+                roundId = "round_2"
+                average = 9.0
+                criteria = @(
+                    @{
+                        score = 9
+                        question = "Revenue model viability"
+                        skipped = $false
+                    }
+                    @{
+                        score = 8
+                        question = "Technical implementation viability"
+                        skipped = $false
+                    }
+                )
+                feedback = "Strong revenue model and technical implementation."
+            }
+        )
+        isNominated = $true
+        willBeMentored = $false
+        willBeMet = $true
+    }
+    @{
+        startupId = "test_startup_2"
+        judgeId = "test_judge_2"
+        averageScore = 7.5
+        feedback = "Innovative solution but needs market validation"
+        individualScores = @(
+            @{
+                roundId = "round_1"
+                average = 7.0
+                criteria = @(
+                    @{
+                        score = 8
+                        question = "Clear problem identification"
+                        skipped = $false
+                    }
+                    @{
+                        score = 7
+                        question = "Solution coherence"
+                        skipped = $false
+                    }
+                    @{
+                        score = 6
+                        question = "Market size assessment"
+                        skipped = $false
+                    }
+                )
+                feedback = "Problem is well-defined but market size needs validation."
+            }
+            @{
+                roundId = "round_2"
+                average = 8.0
+                criteria = @(
+                    @{
+                        score = 8
+                        question = "Revenue model viability"
+                        skipped = $false
+                    }
+                    @{
+                        score = 7
+                        question = "Technical implementation viability"
+                        skipped = $false
+                    }
+                )
+                feedback = "Revenue model is promising but technical implementation needs refinement."
+            }
+        )
+        isNominated = $false
+        willBeMentored = $true
+        willBeMet = $false
+    }
+) | ConvertTo-Json -Depth 10
+
+try {
+    $generateResponse = Invoke-RestMethod -Uri "http://127.0.0.1:5000/rankings/generate" -Method Post -Body $generateBody -ContentType "application/json"
+    Write-Host "Response:"
+    $generateResponse | ConvertTo-Json
+} catch {
+    Write-Host "Error:" -ForegroundColor Red
+    Write-Host $_.Exception.Message
+    if ($_.Exception.Response) {
+        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+        $reader.BaseStream.Position = 0
+        $reader.DiscardBufferedData()
+        $responseBody = $reader.ReadToEnd()
+        Write-Host "Response body:"
+        Write-Host $responseBody
+    }
+}
+
 # Test CSV download endpoint
 Write-Host "`nTesting POST /rankings/download"
 $downloadBody = @(
     @{
-        startup_id = "test_startup_1"
-        startup_name = "Test Startup"
-        judges_feedback = @(
+        startupId = "test_startup_1"
+        judgeId = "test_judge_1"
+        averageScore = 8.5
+        feedback = "Strong potential in innovation and market opportunity"
+        individualScores = @(
             @{
-                judge_id = "judge_1"
-                nominated_for_next_round = $true
-                mentor_interest = $false
-                hero_want_to_meet = $true
-                responses = @(
+                roundId = "round_1"
+                average = 8.0
+                criteria = @(
                     @{
-                        question_id = "prob_1"
-                        score = 4
-                        feedback = "Clear problem identified"
+                        score = 9
+                        question = "Clear problem identification"
+                        skipped = $false
                     }
                     @{
-                        question_id = "prob_2"
-                        score = 5
-                        feedback = "Strong evidence provided"
+                        score = 8
+                        question = "Solution coherence"
+                        skipped = $false
+                    }
+                    @{
+                        score = 7
+                        question = "Market size assessment"
+                        skipped = $false
                     }
                 )
+                feedback = "Good understanding of the market size."
+            }
+            @{
+                roundId = "round_2"
+                average = 9.0
+                criteria = @(
+                    @{
+                        score = 9
+                        question = "Revenue model viability"
+                        skipped = $false
+                    }
+                    @{
+                        score = 8
+                        question = "Technical implementation viability"
+                        skipped = $false
+                    }
+                )
+                feedback = "Strong revenue model and technical implementation."
             }
         )
+        isNominated = $true
+        willBeMentored = $false
+        willBeMet = $true
     }
 ) | ConvertTo-Json -Depth 10
 
