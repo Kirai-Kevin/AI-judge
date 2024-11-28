@@ -1,60 +1,128 @@
 # AI-Judge: Startup Evaluation Platform
 
 ## Overview
-AI-Judge is a comprehensive platform for evaluating and ranking startup pitches using AI-powered analysis and a detailed scoring system.
+AI-Judge is a comprehensive platform for evaluating and ranking startup pitches using AI-powered analysis and a dynamic scoring system. The platform supports configurable evaluation criteria, making it adaptable to different startup ecosystems and evaluation needs.
 
 ## Features
-- Automated startup evaluation across 9 key categories
+- Dynamic configuration of evaluation criteria and weights
 - AI-powered real-time feedback generation
-- Comprehensive scoring system with weighted categories
+- Flexible scoring system with configurable category weights
 - Detailed report generation with scoring breakdowns
-- Structured input format for consistent evaluations
+- Round-based evaluation support
+- Nomination and mentorship tracking
 
-## Input Format
-Each startup evaluation should include feedback for the following categories:
+## Configuration
+### Question Configuration
+Questions are configured dynamically through the API. Here's the structure:
 
-1. Problem (10%)
-   - Clear problem identification
-   - Evidence of importance
-   - Problem solvability
-   - Team's problem obsession
+```json
+{
+  "categories": [
+    {
+      "name": "Problem",
+      "weight": 0.10,
+      "questions": [
+        {
+          "id": "prob_1",
+          "text": "Is there a clear problem?",
+          "weight": 0.25
+        },
+        {
+          "id": "prob_2",
+          "text": "Is there evidence to support the importance of the problem?",
+          "weight": 0.25
+        }
+      ]
+    }
+  ]
+}
+```
 
-2. Solution (10%)
-   - Solution coherence
-   - Clear vision
-   - Technical feasibility
+### Evaluation Input Format
+Each startup evaluation should follow this structure:
 
-3. Innovation (10%)
-   - AI application novelty
-   - Unique problem-solving approach
+```json
+{
+  "startupId": "unique_id",
+  "evaluationConfig": {
+    "categories": [
+      {
+        "name": "Category Name",
+        "weight": 0.XX,
+        "questions": [
+          {
+            "id": "question_id",
+            "text": "Question text",
+            "weight": 0.XX
+          }
+        ]
+      }
+    ]
+  },
+  "evaluations": [
+    {
+      "roundId": "round_id",
+      "responses": [
+        {
+          "questionId": "question_id",
+          "score": 1-10,
+          "feedback": "Detailed feedback",
+          "skipped": false
+        }
+      ],
+      "roundFeedback": "Overall round feedback"
+    }
+  ],
+  "nominations": {
+    "isNominated": boolean,
+    "willBeMentored": boolean,
+    "willBeMet": boolean
+  }
+}
+```
 
-4. Team (20%)
-   - Skills and expertise
-   - Leadership quality
-   - Team dynamics
-   - Agility and adaptability
+## API Endpoints
 
-5. Business Model (10%)
-   - Revenue model viability
-   - Business model clarity
+### 1. Question Configuration
+**Endpoint:** `/api/configure-questions`
+**Method:** POST
+- Configure evaluation criteria and weights
+- Supports dynamic question management
+- Validates configuration structure
 
-6. Market Opportunity (10%)
-   - Market size assessment
-   - Growth potential
-   - Competition analysis
+### 2. Rankings
+**Base Path:** `/rankings`
 
-7. Technical Feasibility (10%)
-   - Technical implementation viability
-   - Resource requirements
+#### Generate Rankings
+**Endpoint:** `/rankings/generate`
+**Method:** POST
+- Processes startup evaluations
+- Generates comprehensive rankings
+- Supports round-based evaluation
 
-8. Execution Strategy (10%)
-   - Implementation plan
-   - Risk management
+#### Download Rankings
+**Endpoint:** `/rankings/download`
+**Method:** GET
+- Downloads CSV with rankings
+- Includes detailed scores and feedback
 
-9. Communication (10%)
-   - Pitch clarity
-   - Presentation quality
-   - Response effectiveness
+### 3. Real-time Feedback
+**Base Path:** `/real_time_feedback`
+
+#### Submit Feedback
+**Endpoint:** `/real_time_feedback/submit`
+**Method:** POST
+- Accepts evaluation responses
+- Provides immediate AI analysis
+
+### 4. Report Generation
+**Base Path:** `/report`
+
+#### Generate Report
+**Endpoint:** `/report/generate`
+**Method:** POST
+- Creates detailed evaluation reports
+- Includes AI-powered insights
 
 ## Setup
 1. Clone the repository
@@ -63,156 +131,39 @@ Each startup evaluation should include feedback for the following categories:
 pip install -r requirements.txt
 ```
 3. Set up environment variables in `.env`:
-```
+```env
 GROQ_API_KEY=your_groq_api_key
-```
-
-## API Endpoints
-
-### 1. Rankings Endpoints
-**Base Path:** `/rankings`
-
-#### Generate Rankings
-**Endpoint:** `/rankings/generate`
-**Method:** POST
-```json
-{
-    "startup_name": "string",
-    "evaluations": {
-        "problem": {
-            "clear_problem": 1-10,
-            "evidence": 1-10,
-            "solvability": 1-10,
-            "team_obsession": 1-10
-        },
-        "solution": {
-            "coherence": 1-10,
-            "vision": 1-10,
-            "feasibility": 1-10
-        },
-        // ... similar format for other categories
-    }
-}
-```
-
-#### Download Rankings
-**Endpoint:** `/rankings/download`
-**Method:** GET
-Downloads a CSV file containing all startup rankings and scores
-
-### 2. Real-time Feedback Endpoints
-**Base Path:** `/real_time_feedback`
-
-#### Submit Feedback
-**Endpoint:** `/real_time_feedback/submit`
-**Method:** POST
-```json
-{
-    "startup_name": "string",
-    "feedback_text": "string",
-    "category": "string"  // One of: problem, solution, innovation, etc.
-}
-```
-
-#### Get Real-time Analysis
-**Endpoint:** `/real_time_feedback/analyze`
-**Method:** POST
-```json
-{
-    "feedback": "string",
-    "context": "string"  // Optional additional context
-}
-```
-
-### 3. Report Endpoints
-**Base Path:** `/report`
-
-#### Generate Report
-**Endpoint:** `/report/generate`
-**Method:** POST
-```json
-{
-    "startup_name": "string",
-    "feedback_data": {
-        "problem": "string",
-        "solution": "string",
-        "innovation": "string",
-        "team": "string",
-        "business_model": "string",
-        "market_opportunity": "string",
-        "technical_feasibility": "string",
-        "execution_strategy": "string",
-        "communication": "string"
-    }
-}
-```
-
-#### Generate Summary
-**Endpoint:** `/report/generate_summary`
-**Method:** POST
-```json
-{
-    "feedback": {
-        "high_level": "string",
-        "detailed_feedback": {
-            "strengths": ["string"],
-            "weaknesses": ["string"],
-            "recommendations": ["string"]
-        }
-    }
-}
-```
-
-### 4. Feedback Processor Endpoints
-**Base Path:** `/feedback_processor`
-
-#### Process Feedback
-**Endpoint:** `/feedback_processor/process`
-**Method:** POST
-```json
-{
-    "startup_data": {
-        "name": "string",
-        "pitch_text": "string"
-    },
-    "feedback_items": [{
-        "category": "string",
-        "score": number,
-        "comments": "string"
-    }]
-}
-```
-
-#### Aggregate Feedback
-**Endpoint:** `/feedback_processor/aggregate`
-**Method:** POST
-```json
-{
-    "startup_id": "string",
-    "feedback_entries": [{
-        "judge_id": "string",
-        "scores": {
-            "category": number
-        },
-        "comments": "string"
-    }]
-}
 ```
 
 ## Dependencies
 - Flask: Web framework
 - Groq: AI-powered analysis
 - pandas: Data processing
-- python-docx: Report generation
 - numpy: Numerical computations
+- python-docx: Report generation
 - Additional utilities (see requirements.txt)
 
 ## Development Status
-- Core scoring system implemented
-- AI feedback generation
-- Basic API endpoints
-- Testing suite
-- Error handling improvements
+- Dynamic question configuration 
+- Core scoring system 
+- AI feedback generation 
+- Round-based evaluation 
+- Nomination tracking 
+- Error handling 
+
+## Best Practices
+1. Always configure questions before submitting evaluations
+2. Use consistent question IDs across evaluations
+3. Ensure category weights sum to 1.0
+4. Provide detailed feedback for better AI analysis
+5. Regular backup of question configurations
 
 ## Contributing
-Contributions are welcome! Please follow the standard pull request process.
+Contributions are welcome! Please follow these steps:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## License
+MIT License - See LICENSE file for details

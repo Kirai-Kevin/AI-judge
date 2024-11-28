@@ -14,26 +14,29 @@ import io
 from report import report_bp, generate_feedback_summary
 from real_time_feedback import real_time_feedback_bp
 from feedback_processor import feedback_processor_bp
-from rankings import rankings_bp 
+from rankings import rankings_bp, init_ranking_processor
+from flask_cors import CORS
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
 
 # Register blueprints
+app.register_blueprint(rankings_bp, url_prefix='/rankings')
 app.register_blueprint(report_bp, url_prefix='/report')
-app.register_blueprint(real_time_feedback_bp, url_prefix="/real_time_feedback")
+app.register_blueprint(real_time_feedback_bp, url_prefix='/real_time_feedback')
 app.register_blueprint(feedback_processor_bp, url_prefix='/feedback_processor')
-app.register_blueprint(rankings_bp, url_prefix='/rankings') 
 
+# Initialize the ranking processor
+init_ranking_processor(api_key=os.getenv('GROQ_API_KEY'))
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger(__name__)
 
 # Configure Groq API
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -133,7 +136,7 @@ def retry_on_quota_exceeded():
                 except Exception as e:
                     if "quota exceeded" in str(e).lower() and attempt < max_retries - 1:
                         delay = (base_delay * 2 ** attempt) + (random.uniform(0, 1))
-                        logger.warning(f"Quota exceeded. Retrying in {delay:.2f} seconds. Attempt {attempt + 1}/{max_retries}")
+                        logging.warning(f"Quota exceeded. Retrying in {delay:.2f} seconds. Attempt {attempt + 1}/{max_retries}")
                         time.sleep(delay)
                     else:
                         raise
@@ -190,7 +193,7 @@ def generate_summary(feedback_data):
         return summary
     
     except Exception as e:
-        logger.error(f"Error during summarization: {str(e)}", exc_info=True)
+        logging.error(f"Error during summarization: {str(e)}", exc_info=True)
         raise
 
 @app.route("/summarize_feedback", methods=["POST"])
@@ -224,18 +227,71 @@ def summarize_feedback():
             )
             
         except Exception as e:
-            logger.error(f"Error processing feedback: {str(e)}", exc_info=True)
+            logging.error(f"Error processing feedback: {str(e)}", exc_info=True)
             return jsonify({
                 "error": "An error occurred while processing the feedback",
                 "details": str(e)
             }), 500
             
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+        logging.error(f"Unexpected error: {str(e)}", exc_info=True)
         return jsonify({
             "error": "An unexpected error occurred",
             "details": str(e) if app.debug else None
         }), 500
 
+# New route for handling dynamic question configuration
+@app.route('/api/configure-questions', methods=['POST'])
+def configure_questions():
+    try:
+        data = request.json
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Invalid data format"}), 400
+
+        # Validate the configuration structure
+        if 'categories' not in data:
+            return jsonify({"error": "Missing 'categories' in configuration"}), 400
+
+        for category in data['categories']:
+            if not all(key in category for key in ['name', 'weight', 'questions']):
+                return jsonify({"error": "Invalid category structure"}), 400
+            
+            if not isinstance(category['questions'], list):
+                return jsonify({"error": f"Questions for category {category['name']} must be a list"}), 400
+                
+            for question in category['questions']:
+                if not all(key in question for key in ['id', 'text', 'weight']):
+                    return jsonify({"error": f"Invalid question structure in category {category['name']}"}), 400
+
+        # Store the configuration
+        app.config['QUESTIONS_CONFIG'] = data
+        
+        # Update the ranking processor with new configuration
+        init_ranking_processor(api_key=os.getenv('GROQ_API_KEY'))
+
+        return jsonify({
+            "message": "Questions configuration updated successfully",
+            "config": data
+        }), 200
+    except Exception as e:
+        logging.error(f"Error configuring questions: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    try:
+        # Try different ports if default port is in use
+        ports = [5000, 5001, 5002, 8080, 8081]
+        for port in ports:
+            try:
+                logging.info(f"Attempting to start server on port {port}")
+                app.run(host="0.0.0.0", port=port, debug=True)
+                break
+            except OSError as e:
+                if port == ports[-1]:
+                    logging.error(f"Could not bind to any ports in {ports}. Error: {str(e)}")
+                    raise
+                else:
+                    logging.warning(f"Port {port} is in use, trying next port")
+                    continue
+    except Exception as e:
+        logging.error(f"Failed to start server: {str(e)}")
