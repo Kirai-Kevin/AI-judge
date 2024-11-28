@@ -1,7 +1,7 @@
 import os
 import textwrap
 from flask import Blueprint
-import groq
+from groq.client import Groq
 from dotenv import load_dotenv
 
 # Create a blueprint
@@ -9,7 +9,7 @@ report_bp = Blueprint('report', __name__)
 load_dotenv()
 
 # Groq API setup
-client = groq.Groq(api_key=os.environ.get("GROQ_API_KEY"))
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 # Function to clean up the AI response
 def clean_ai_response(response: str) -> str:

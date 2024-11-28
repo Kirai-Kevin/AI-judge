@@ -5,7 +5,7 @@ from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import random
-import groq
+from groq.client import Groq
 from functools import wraps
 from dotenv import load_dotenv
 import time
@@ -40,7 +40,7 @@ logging.basicConfig(
 
 # Configure Groq API
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-client = groq.Groq(api_key=GROQ_API_KEY)
+client = Groq(api_key=GROQ_API_KEY)
 
 def create_feedback_document(data, summary):
     """
