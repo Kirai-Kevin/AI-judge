@@ -188,24 +188,11 @@ class StartupRankingProcessor:
             if not startup_id:
                 continue
 
-            # Get basic startup info
+            # Get only the required startup info
             data = {
                 'Startup ID': startup_id,
-                'Judge ID': startup_data.get('judgeId', 'Unknown'),
-                'Overall Score': startup_data.get('averageScore', 0),
-                'Overall Feedback': startup_data.get('feedback', ''),
-                'Nominated': startup_data.get('isNominated', False),
-                'Mentored': startup_data.get('willBeMentored', False),
-                'Meeting Requested': startup_data.get('willBeMet', False)
+                'Overall Score': startup_data.get('averageScore', 0)
             }
-            
-            # Add round information if available
-            rounds = startup_data.get('individualScores', [])
-            if rounds:
-                latest_round = rounds[-1]  # Get the most recent round
-                data['Round ID'] = latest_round.get('roundId', 'Unknown')
-                data['Round Score'] = latest_round.get('average', 0)
-                data['Round Feedback'] = latest_round.get('feedback', '')
             
             rankings_data.append(data)
         
