@@ -498,10 +498,10 @@ def submit_feedback():
     
     # Create response data
     response_data = {
-        'status': 'success',
+        'feedback': overall_feedback or None,
         'overallScore': overall_score,
-        'summary': summary,
-        'feedback': overall_feedback
+        'status': 'success',
+        'summary': summary
     }
     
     return jsonify(response_data), 200
