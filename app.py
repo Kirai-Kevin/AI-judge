@@ -341,7 +341,6 @@ def summarize_feedback():
 
         # Write AI Summary
         writer.writerow(['AI Analysis'])
-        # Split the AI summary into paragraphs and write each on a new row
         for paragraph in ai_summary.split('\n'):
             if paragraph.strip():  # Only write non-empty paragraphs
                 writer.writerow([paragraph.strip()])
@@ -362,78 +361,17 @@ def summarize_feedback():
 
 @app.route("/download_feedback_csv/<pitch_id>", methods=["GET"])
 def download_feedback_csv(pitch_id):
-    try:
-        # Fetch the feedback data for the given pitch_id
-        # This assumes you have the data stored somewhere - adjust according to your data storage
-        data = get_pitch_data(pitch_id)  # You'll need to implement this function
-        
-        if not data:
-            return jsonify({"error": "No data found for the given pitch ID"}), 404
+    # Simulate fetching data for the given pitch ID
+    data = {
+        "pitch_id": pitch_id,
+        "feedback": "This is a sample feedback for the pitch.",
+        "score": 85,
+        "comments": "Strong potential with innovative solution."
+    }
+    
+    # Return the data in raw buffer form
+    return jsonify(data), 200
 
-        # Generate summary
-        ai_summary = generate_summary(data)
-        
-        # Calculate overall score
-        overall_score = calculate_overall_score(data)
-        
-        # Extract scoring sections
-        scoring_sections = data.get('scoringSections', [])
-        
-        # Prepare CSV data
-        output = io.StringIO()
-        writer = csv.writer(output, lineterminator='\n')
-        
-        # Write metadata section
-        writer.writerow(['Pitch Evaluation Summary'])
-        writer.writerow([''])  # Empty row for spacing
-        
-        # Write basic information
-        writer.writerow(['Basic Information'])
-        writer.writerow(['Team Name', data.get('teamName', 'Not specified')])
-        writer.writerow(['Pitch Number', data.get('pitchNumber', 'N/A')])
-        writer.writerow(['Session', data.get('session', 'N/A')])
-        writer.writerow(['Overall Score', f"{overall_score:.2f}/10"])
-        writer.writerow([''])  # Empty row for spacing
-
-        # Write scoring sections
-        writer.writerow(['Detailed Scores'])
-        writer.writerow(['Category', 'Score', 'Feedback'])
-        for section in scoring_sections:
-            writer.writerow([
-                section.get('title', 'N/A'),
-                f"{section.get('score', 0):.1f}/10",
-                section.get('feedback', 'No feedback provided')
-            ])
-        writer.writerow([''])  # Empty row for spacing
-
-        # Write general feedback
-        writer.writerow(['General Feedback'])
-        writer.writerow([data.get('generalFeedback', 'No general feedback provided')])
-        writer.writerow([''])  # Empty row for spacing
-
-        # Write AI Summary
-        writer.writerow(['AI Analysis'])
-        for paragraph in ai_summary.split('\n'):
-            if paragraph.strip():  # Only write non-empty paragraphs
-                writer.writerow([paragraph.strip()])
-
-        # Create CSV file in memory
-        output.seek(0)
-        
-        # Generate a filename with timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"pitch_feedback_{pitch_id}_{timestamp}.csv"
-        
-        return send_file(
-            io.BytesIO(output.getvalue().encode('utf-8')),
-            mimetype='text/csv',
-            as_attachment=True,
-            download_name=filename
-        )
-
-    except Exception as e:
-        logging.error(f"Error generating CSV: {str(e)}", exc_info=True)
-        return jsonify({"error": "An error occurred while generating the CSV"}), 500
 
 # Helper function to get pitch data (implement according to your data storage)
 def get_pitch_data(pitch_id):
@@ -448,48 +386,6 @@ def get_pitch_data(pitch_id):
     # Example:
     # return db.pitches.find_one({"pitch_id": pitch_id})
     pass
-
-# Add a route to serve a download button/link
-@app.route("/download_page/<pitch_id>")
-def download_page(pitch_id):
-    """
-    Serves a simple page with a download button
-    """
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Download Feedback CSV</title>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-            }}
-            .download-button {{
-                padding: 15px 25px;
-                background-color: #4CAF50;
-                color: white;
-                text-decoration: none;
-                border-radius: 5px;
-                font-size: 16px;
-            }}
-            .download-button:hover {{
-                background-color: #45a049;
-            }}
-        </style>
-    </head>
-    <body>
-        <a href="/download_feedback_csv/{pitch_id}" class="download-button">
-            Download Feedback CSV
-        </a>
-    </body>
-    </html>
-    """
-
 
 # New route for handling dynamic question configuration
 @app.route('/api/configure-questions', methods=['POST'])
@@ -527,6 +423,115 @@ def configure_questions():
     except Exception as e:
         logging.error(f"Error configuring questions: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/v1/results/export', methods=['GET'])
+def export_results():
+    # Return a hardcoded response simulating the results export
+    response_data = [
+        {
+            "scoringTime": "2024-12-12T17:44:09+03:00",  # Current local time
+            "totalScore": 85,
+            "meetStartup": True,
+            "mentorStartup": False,
+            "nominateNextRound": True,
+            "overallFeedback": "Strong potential with innovative solution",
+            "judgeId": "507f1f77bcf86cd799439011",
+            "startupId": "507f1f77bcf86cd799439012",
+            "roundId": "507f1f77bcf86cd799439013",
+            "sectionScores": {
+                "teamSection": {
+                    "rawAverage": 4.5,
+                    "percentageScore": 90,
+                    "weightedScore": 27,
+                    "maxPoints": 30,
+                    "feedback": "Experienced leadership team",
+                    "isSkipped": False,
+                    "individualScores": {
+                        "leadership": 5,
+                        "experience": 4
+                    },
+                    "totalPossibleQuestions": 2,
+                    "answeredQuestions": 2
+                }
+            },
+            "rawFormData": {
+                "teamSection": {
+                    "scores": {
+                        "leadership": 5,
+                        "experience": 4
+                    },
+                    "feedback": "Strong team composition",
+                    "isSkipped": False
+                }
+            }
+        }
+    ]
+
+    return jsonify(response_data), 200
+
+def fetch_results_from_database():
+    # Implement your database logic here
+    return []  # Placeholder for actual data fetching
+
+@app.route('/api/submit_feedback', methods=['POST'])
+def submit_feedback():
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # Process the feedback data
+    team_name = data.get('teamName')
+    pitch_number = data.get('pitchNumber')
+    session = data.get('session')
+    general_feedback = data.get('generalFeedback')
+    scoring_sections = data.get('scoringSections', [])
+    
+    # Generate summary and overall score
+    overall_score = calculate_overall_score({'scoringSections': scoring_sections})
+    summary = generate_summary(data)  # Ensure summary is defined here
+    
+    # Create CSV file
+    csv_file = create_csv_report(team_name, pitch_number, session, general_feedback, scoring_sections, overall_score, summary)
+    
+    return send_file(csv_file, mimetype='text/csv', as_attachment=True, download_name='feedback_summary.csv')
+
+def create_csv_report(team_name, pitch_number, session, general_feedback, scoring_sections, overall_score, summary):
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator='\n')
+    writer.writerow(['Pitch Evaluation Summary'])
+    writer.writerow([''])  # Empty row for spacing
+    writer.writerow(['Basic Information'])
+    writer.writerow(['Team Name', team_name])
+    writer.writerow(['Pitch Number', pitch_number])
+    writer.writerow(['Session', session])
+    writer.writerow(['Overall Score', f"{overall_score:.2f}/10"])
+    writer.writerow([''])  # Empty row for spacing
+
+    # Write scoring sections
+    writer.writerow(['Detailed Scores'])
+    writer.writerow(['Category', 'Score', 'Feedback'])
+    for section in scoring_sections:
+        writer.writerow([
+            section.get('title', 'N/A'),
+            f"{section.get('score', 0):.1f}/10",
+            section.get('feedback', 'No feedback provided')
+        ])
+    writer.writerow([''])  # Empty row for spacing
+
+    # Write general feedback
+    writer.writerow(['General Feedback'])
+    writer.writerow([general_feedback])
+    writer.writerow([''])  # Empty row for spacing
+
+    # Write AI Summary
+    writer.writerow(['AI Analysis'])
+    for paragraph in summary.split('\n'):
+        if paragraph.strip():  # Only write non-empty paragraphs
+            writer.writerow([paragraph.strip()])
+
+    # Create CSV file in memory
+    output.seek(0)
+    return io.BytesIO(output.getvalue().encode('utf-8'))
 
 if __name__ == "__main__":
     try:
