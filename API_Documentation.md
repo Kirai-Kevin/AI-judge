@@ -14,17 +14,41 @@ The AI-Judge application is designed to evaluate startup pitches and provide fee
 - **Request Body:**
   ```json
   {
-      "teamName": "string",
-      "pitchNumber": "string",
-      "session": "string",
-      "generalFeedback": "string",
-      "scoringSections": [
-          {
-              "title": "string",
-              "score": "number",
-              "feedback": "string"
-          }
-      ]
+    "scoringTime": "2023-07-20T15:30:00Z",
+    "totalScore": 85,
+    "meetStartup": true,
+    "mentorStartup": false,
+    "nominateNextRound": true,
+    "overallFeedback": "Strong potential with innovative solution",
+    "judgeId": "507f1f77bcf86cd799439011",
+    "startupId": "507f1f77bcf86cd799439012",
+    "roundId": "507f1f77bcf86cd799439013",
+    "sectionScores": {
+      "teamSection": {
+        "rawAverage": 4.5,
+        "percentageScore": 90,
+        "weightedScore": 27,
+        "maxPoints": 30,
+        "feedback": "Experienced leadership team",
+        "isSkipped": false,
+        "individualScores": {
+          "leadership": 5,
+          "experience": 4
+        },
+        "totalPossibleQuestions": 2,
+        "answeredQuestions": 2
+      }
+    },
+    "rawFormData": {
+      "teamSection": {
+        "scores": {
+          "leadership": 5,
+          "experience": 4
+        },
+        "feedback": "Strong team composition",
+        "isSkipped": false
+      }
+    }
   }
   ```
 - **Response:**

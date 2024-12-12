@@ -249,14 +249,14 @@ def calculate_overall_score(data):
         float: Calculated overall score
     """
     # If scoring sections exist, calculate weighted average
-    if data.get('scoringSections'):
+    if data.get('sectionScores'):
         total_weighted_score = sum(
-            section.get('score', 0) * section.get('weight', 1) 
-            for section in data['scoringSections']
+            section['rawAverage'] * section.get('maxPoints', 1) 
+            for section in data['sectionScores'].values()
         )
         total_weight = sum(
-            section.get('weight', 1) 
-            for section in data['scoringSections']
+            section.get('maxPoints', 1) 
+            for section in data['sectionScores'].values()
         )
         return total_weighted_score / total_weight if total_weight > 0 else 0
     
@@ -480,47 +480,53 @@ def submit_feedback():
         return jsonify({'error': 'No data provided'}), 400
     
     # Process the feedback data
-    team_name = data.get('teamName')
-    pitch_number = data.get('pitchNumber')
-    session = data.get('session')
-    general_feedback = data.get('generalFeedback')
-    scoring_sections = data.get('scoringSections', [])
+    scoring_time = data.get('scoringTime')
+    total_score = data.get('totalScore')
+    meet_startup = data.get('meetStartup')
+    mentor_startup = data.get('mentorStartup')
+    nominate_next_round = data.get('nominateNextRound')
+    overall_feedback = data.get('overallFeedback')
+    judge_id = data.get('judgeId')
+    startup_id = data.get('startupId')
+    round_id = data.get('roundId')
+    section_scores = data.get('sectionScores', {})
+    raw_form_data = data.get('rawFormData', {})
     
     # Generate summary and overall score
-    overall_score = calculate_overall_score({'scoringSections': scoring_sections})
+    overall_score = calculate_overall_score({'scoringSections': section_scores})
     summary = generate_summary(data)  # Ensure summary is defined here
     
     # Create CSV file
-    csv_file = create_csv_report(team_name, pitch_number, session, general_feedback, scoring_sections, overall_score, summary)
+    csv_file = create_csv_report(startup_id, round_id, judge_id, overall_feedback, section_scores, total_score, summary)
     
     return send_file(csv_file, mimetype='text/csv', as_attachment=True, download_name='feedback_summary.csv')
 
-def create_csv_report(team_name, pitch_number, session, general_feedback, scoring_sections, overall_score, summary):
+def create_csv_report(startup_id, round_id, judge_id, overall_feedback, section_scores, total_score, summary):
     output = io.StringIO()
     writer = csv.writer(output, lineterminator='\n')
     writer.writerow(['Pitch Evaluation Summary'])
     writer.writerow([''])  # Empty row for spacing
     writer.writerow(['Basic Information'])
-    writer.writerow(['Team Name', team_name])
-    writer.writerow(['Pitch Number', pitch_number])
-    writer.writerow(['Session', session])
-    writer.writerow(['Overall Score', f"{overall_score:.2f}/10"])
+    writer.writerow(['Startup ID', startup_id])
+    writer.writerow(['Round ID', round_id])
+    writer.writerow(['Judge ID', judge_id])
+    writer.writerow(['Overall Score', f"{total_score:.2f}/10"])
     writer.writerow([''])  # Empty row for spacing
 
     # Write scoring sections
     writer.writerow(['Detailed Scores'])
     writer.writerow(['Category', 'Score', 'Feedback'])
-    for section in scoring_sections:
+    for section in section_scores.values():
         writer.writerow([
             section.get('title', 'N/A'),
-            f"{section.get('score', 0):.1f}/10",
+            f"{section.get('rawAverage', 0):.1f}/10",
             section.get('feedback', 'No feedback provided')
         ])
     writer.writerow([''])  # Empty row for spacing
 
     # Write general feedback
     writer.writerow(['General Feedback'])
-    writer.writerow([general_feedback])
+    writer.writerow([overall_feedback])
     writer.writerow([''])  # Empty row for spacing
 
     # Write AI Summary
