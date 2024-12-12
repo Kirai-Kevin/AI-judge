@@ -493,13 +493,18 @@ def submit_feedback():
     raw_form_data = data.get('rawFormData', {})
     
     # Generate summary and overall score
-    overall_score = calculate_overall_score({'scoringSections': section_scores})
+    overall_score = calculate_overall_score({'sectionScores': section_scores})
     summary = generate_summary(data)  # Ensure summary is defined here
     
-    # Create CSV file
-    csv_file = create_csv_report(startup_id, round_id, judge_id, overall_feedback, section_scores, total_score, summary)
+    # Create response data
+    response_data = {
+        'status': 'success',
+        'overallScore': overall_score,
+        'summary': summary,
+        'feedback': overall_feedback
+    }
     
-    return send_file(csv_file, mimetype='text/csv', as_attachment=True, download_name='feedback_summary.csv')
+    return jsonify(response_data), 200
 
 def create_csv_report(startup_id, round_id, judge_id, overall_feedback, section_scores, total_score, summary):
     output = io.StringIO()
