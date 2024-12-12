@@ -1,5 +1,1 @@
-curl -X POST http://localhost:5000/report/generate_summary \
--H "Content-Type: text/plain" \
--d "Just some plain text that is not JSON."
-
-report
+curl -X POST curl -X POST http://127.0.0.1:5000/summarize_feedback -H Content-Type: application/json -d {"teamName": "Team A", "pitchNumber": "1", "session": "Session 1", "totalScore": "85", "teamSection_percentageScore": "90", "teamSection_feedback": "Great presentation!", "generalFeedback": "Well done overall."}/summarize_feedback -H Content-Type: application/json -d {"teamName": "Team A", "pitchNumber": "1", "session": "Session 1", "totalScore": "85", "teamSection_percentageScore": "90", "teamSection_feedback": "Great presentation!", "generalFeedback": "Well done overall."}

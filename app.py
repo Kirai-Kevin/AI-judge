@@ -16,6 +16,7 @@ from real_time_feedback import real_time_feedback_bp
 from feedback_processor import feedback_processor_bp
 from rankings import rankings_bp, init_ranking_processor
 from flask_cors import CORS
+import csv
 
 # Load environment variables from .env file
 load_dotenv()
@@ -196,11 +197,103 @@ def generate_summary(feedback_data):
         logging.error(f"Error during summarization: {str(e)}", exc_info=True)
         raise
 
+def generate_judge_feedback(data):
+    """
+    Compile judge feedback from available information.
+    
+    Args:
+        data (dict): Feedback data
+    
+    Returns:
+        str: Formatted judge feedback
+    """
+    feedback_parts = []
+    
+    # Use section feedbacks as judge perspectives
+    for section in data.get('scoringSections', []):
+        if section.get('feedback'):
+            feedback_parts.append(f"Judge: {section.get('title', 'Evaluation')} - {section['feedback']}")
+    
+    # Add general feedback if available
+    if data.get('generalFeedback'):
+        feedback_parts.append(f"Overall Feedback: {data['generalFeedback']}")
+    
+    return '\n\n'.join(feedback_parts) or 'No detailed judge feedback available'
+
+def generate_comprehensive_summary(data):
+    """
+    Generate a comprehensive summary of the startup pitch.
+    
+    Args:
+        data (dict): Feedback data for the startup
+    
+    Returns:
+        dict: Comprehensive summary with key metrics
+    """
+    summary = {
+        'Overall Score': calculate_overall_score(data),
+        'AI Analysis': generate_ai_analysis(data),
+        'Judge Feedback Summaries': generate_judge_feedback(data)
+    }
+    return summary
+
+
+def calculate_overall_score(data):
+    """
+    Calculate the overall score based on different scoring sections.
+    
+    Args:
+        data (dict): Feedback data
+    
+    Returns:
+        float: Calculated overall score
+    """
+    # If scoring sections exist, calculate weighted average
+    if data.get('scoringSections'):
+        total_weighted_score = sum(
+            section.get('score', 0) * section.get('weight', 1) 
+            for section in data['scoringSections']
+        )
+        total_weight = sum(
+            section.get('weight', 1) 
+            for section in data['scoringSections']
+        )
+        return total_weighted_score / total_weight if total_weight > 0 else 0
+    
+    # Fallback to total score if available
+    return data.get('totalScore', 0)
+
+
+def generate_ai_analysis(data):
+    """
+    Generate AI-driven analysis of the startup pitch.
+    
+    Args:
+        data (dict): Feedback data
+    
+    Returns:
+        str: Formatted AI analysis
+    """
+    strengths = []
+    improvements = []
+    recommendations = []
+
+    # Extract strengths from scoring sections
+    for section in data.get('scoringSections', []):
+        if section.get('score', 0) > 8:
+            strengths.append(f"Strong {section.get('title', 'area')}")
+        elif section.get('score', 0) < 7:
+            improvements.append(f"Improve {section.get('title', 'area')}")
+
+    # Add general feedback insights
+    if data.get('generalFeedback'):
+        recommendations.append(data['generalFeedback'])
+
+    return f"STRENGTHS:\n{', '.join(strengths) or '1. No specific strengths identified'}\n\nAREAS FOR IMPROVEMENT:\n{', '.join(improvements) or '1. No significant improvement areas identified'}\n\nRECOMMENDATIONS:\n{', '.join(recommendations) or '1. Continue refining pitch strategy'}"
+
+
 @app.route("/summarize_feedback", methods=["POST"])
 def summarize_feedback():
-    """
-    API endpoint to process feedback and generate a downloadable Word document.
-    """
     try:
         # Get JSON data
         data = request.get_json()
@@ -208,37 +301,195 @@ def summarize_feedback():
             return jsonify({"error": "No data provided"}), 400
         
         # Generate summary
-        try:
-            summary = generate_summary(data)
-            
-            # Create document
-            doc_stream = create_feedback_document(data, summary)
-            
-            # Generate filename
-            filename = f"{data.get('teamName', 'Team')}_{data.get('pitchNumber', 'Pitch')}_Feedback.docx"
-            filename = "".join(c for c in filename if c.isalnum() or c in ('-', '_')).rstrip()
-            
-            # Return document
-            return send_file(
-                doc_stream,
-                mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                as_attachment=True,
-                download_name=filename
-            )
-            
-        except Exception as e:
-            logging.error(f"Error processing feedback: {str(e)}", exc_info=True)
-            return jsonify({
-                "error": "An error occurred while processing the feedback",
-                "details": str(e)
-            }), 500
-            
+        ai_summary = generate_summary(data)
+        
+        # Calculate overall score
+        overall_score = calculate_overall_score(data)
+        
+        # Extract scoring sections
+        scoring_sections = data.get('scoringSections', [])
+        
+        # Prepare CSV data
+        output = io.StringIO()
+        writer = csv.writer(output, lineterminator='\n')
+        
+        # Write metadata section
+        writer.writerow(['Pitch Evaluation Summary'])
+        writer.writerow([''])  # Empty row for spacing
+        writer.writerow(['Basic Information'])
+        writer.writerow(['Team Name', data.get('teamName', 'Not specified')])
+        writer.writerow(['Pitch Number', data.get('pitchNumber', 'N/A')])
+        writer.writerow(['Session', data.get('session', 'N/A')])
+        writer.writerow(['Overall Score', f"{overall_score:.2f}/10"])
+        writer.writerow([''])  # Empty row for spacing
+
+        # Write scoring sections
+        writer.writerow(['Detailed Scores'])
+        writer.writerow(['Category', 'Score', 'Feedback'])
+        for section in scoring_sections:
+            writer.writerow([
+                section.get('title', 'N/A'),
+                f"{section.get('score', 0):.1f}/10",
+                section.get('feedback', 'No feedback provided')
+            ])
+        writer.writerow([''])  # Empty row for spacing
+
+        # Write general feedback
+        writer.writerow(['General Feedback'])
+        writer.writerow([data.get('generalFeedback', 'No general feedback provided')])
+        writer.writerow([''])  # Empty row for spacing
+
+        # Write AI Summary
+        writer.writerow(['AI Analysis'])
+        # Split the AI summary into paragraphs and write each on a new row
+        for paragraph in ai_summary.split('\n'):
+            if paragraph.strip():  # Only write non-empty paragraphs
+                writer.writerow([paragraph.strip()])
+
+        # Create CSV file in memory
+        output.seek(0)
+        
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name='feedback_summary.csv'
+        )
     except Exception as e:
-        logging.error(f"Unexpected error: {str(e)}", exc_info=True)
-        return jsonify({
-            "error": "An unexpected error occurred",
-            "details": str(e) if app.debug else None
-        }), 500
+        logging.error(f"Error processing feedback: {str(e)}", exc_info=True)
+        return jsonify({"error": "An error occurred while processing the feedback"}), 500
+
+
+@app.route("/download_feedback_csv/<pitch_id>", methods=["GET"])
+def download_feedback_csv(pitch_id):
+    try:
+        # Fetch the feedback data for the given pitch_id
+        # This assumes you have the data stored somewhere - adjust according to your data storage
+        data = get_pitch_data(pitch_id)  # You'll need to implement this function
+        
+        if not data:
+            return jsonify({"error": "No data found for the given pitch ID"}), 404
+
+        # Generate summary
+        ai_summary = generate_summary(data)
+        
+        # Calculate overall score
+        overall_score = calculate_overall_score(data)
+        
+        # Extract scoring sections
+        scoring_sections = data.get('scoringSections', [])
+        
+        # Prepare CSV data
+        output = io.StringIO()
+        writer = csv.writer(output, lineterminator='\n')
+        
+        # Write metadata section
+        writer.writerow(['Pitch Evaluation Summary'])
+        writer.writerow([''])  # Empty row for spacing
+        
+        # Write basic information
+        writer.writerow(['Basic Information'])
+        writer.writerow(['Team Name', data.get('teamName', 'Not specified')])
+        writer.writerow(['Pitch Number', data.get('pitchNumber', 'N/A')])
+        writer.writerow(['Session', data.get('session', 'N/A')])
+        writer.writerow(['Overall Score', f"{overall_score:.2f}/10"])
+        writer.writerow([''])  # Empty row for spacing
+
+        # Write scoring sections
+        writer.writerow(['Detailed Scores'])
+        writer.writerow(['Category', 'Score', 'Feedback'])
+        for section in scoring_sections:
+            writer.writerow([
+                section.get('title', 'N/A'),
+                f"{section.get('score', 0):.1f}/10",
+                section.get('feedback', 'No feedback provided')
+            ])
+        writer.writerow([''])  # Empty row for spacing
+
+        # Write general feedback
+        writer.writerow(['General Feedback'])
+        writer.writerow([data.get('generalFeedback', 'No general feedback provided')])
+        writer.writerow([''])  # Empty row for spacing
+
+        # Write AI Summary
+        writer.writerow(['AI Analysis'])
+        for paragraph in ai_summary.split('\n'):
+            if paragraph.strip():  # Only write non-empty paragraphs
+                writer.writerow([paragraph.strip()])
+
+        # Create CSV file in memory
+        output.seek(0)
+        
+        # Generate a filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"pitch_feedback_{pitch_id}_{timestamp}.csv"
+        
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+        logging.error(f"Error generating CSV: {str(e)}", exc_info=True)
+        return jsonify({"error": "An error occurred while generating the CSV"}), 500
+
+# Helper function to get pitch data (implement according to your data storage)
+def get_pitch_data(pitch_id):
+    """
+    Retrieve pitch data from your storage system
+    Args:
+        pitch_id (str): The ID of the pitch
+    Returns:
+        dict: The pitch data
+    """
+    # Implement this according to your data storage solution
+    # Example:
+    # return db.pitches.find_one({"pitch_id": pitch_id})
+    pass
+
+# Add a route to serve a download button/link
+@app.route("/download_page/<pitch_id>")
+def download_page(pitch_id):
+    """
+    Serves a simple page with a download button
+    """
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Download Feedback CSV</title>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+            }}
+            .download-button {{
+                padding: 15px 25px;
+                background-color: #4CAF50;
+                color: white;
+                text-decoration: none;
+                border-radius: 5px;
+                font-size: 16px;
+            }}
+            .download-button:hover {{
+                background-color: #45a049;
+            }}
+        </style>
+    </head>
+    <body>
+        <a href="/download_feedback_csv/{pitch_id}" class="download-button">
+            Download Feedback CSV
+        </a>
+    </body>
+    </html>
+    """
+
 
 # New route for handling dynamic question configuration
 @app.route('/api/configure-questions', methods=['POST'])
