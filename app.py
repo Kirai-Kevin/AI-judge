@@ -197,6 +197,27 @@ def generate_summary(feedback_data):
         logging.error(f"Error during summarization: {str(e)}", exc_info=True)
         raise
 
+def clean_ai_response(ai_response):
+    """
+    Clean up the AI response to ensure it is properly formatted for CSV output.
+    
+    Args:
+        ai_response (str): The raw response from the AI.
+    
+    Returns:
+        list: A list of lists representing the cleaned CSV data.
+    """
+    # Split the response into lines and strip whitespace
+    lines = [line.strip() for line in ai_response.split('\n') if line.strip()]
+    
+    # Prepare the cleaned data in CSV format
+    cleaned_data = []
+    for line in lines:
+        # Split each line by commas and ensure proper formatting
+        cleaned_data.append([item.strip() for item in line.split(',')])
+    
+    return cleaned_data
+
 def generate_judge_feedback(data):
     """
     Compile judge feedback from available information.
@@ -266,97 +287,220 @@ def calculate_overall_score(data):
 
 def generate_ai_analysis(data):
     """
-    Generate AI-driven analysis of the startup pitch.
+    Generate AI-driven analysis of the startup pitch in CSV format.
     
     Args:
         data (dict): Feedback data
     
     Returns:
-        str: Formatted AI analysis
+        str: CSV formatted analysis
+    """
+    overall_score = calculate_overall_score(data)
+    
+    prompt = f"""
+    Analyze this startup pitch data and generate a detailed evaluation in CSV format.
+    Overall Score: {overall_score:.2f}/10
+    
+    Scoring Sections:
+    {data.get('scoringSections', [])}
+    
+    General Feedback:
+    {data.get('generalFeedback', '')}
+    
+    Generate a comprehensive analysis in strict CSV format with these requirements:
+    1. First row must be headers: Category,Score,Analysis,Recommendations
+    2. Include detailed analysis of:
+       - Executive Summary
+       - Market Analysis
+       - Product/Solution
+       - Team Capabilities
+       - Business Model
+       - Financial Projections
+       - Risk Assessment
+    3. Each section should have a score (if applicable) and detailed analysis
+    4. Include specific, actionable recommendations
+    5. Use only comma separation and maintain proper CSV formatting
+    6. Avoid using commas within the text fields
     """
     strengths = []
     improvements = []
     recommendations = []
+    market_analysis = []
+    team_evaluation = []
+    business_model = []
 
-    # Extract strengths from scoring sections
+    # Analyze scoring sections for strengths and improvements
     for section in data.get('scoringSections', []):
-        if section.get('score', 0) > 8:
-            strengths.append(f"Strong {section.get('title', 'area')}")
-        elif section.get('score', 0) < 7:
-            improvements.append(f"Improve {section.get('title', 'area')}")
+        score = section.get('score', 0)
+        title = section.get('title', 'area')
+        feedback = section.get('feedback', '')
 
-    # Add general feedback insights
+        if score >= 8:
+            strengths.append(f"- {title}: Exceptional performance ({score}/10). {feedback}")
+            if score >= 9:
+                strengths.append(f"  Notable excellence in {title.lower()} demonstrates market-leading potential")
+        elif score >= 6 and score < 8:
+            improvements.append(f"- {title}: Room for enhancement ({score}/10). {feedback}")
+            recommendations.append(f"- Consider strengthening {title.lower()} by addressing specific feedback points")
+        else:
+            improvements.append(f"- {title}: Requires significant attention ({score}/10). {feedback}")
+            recommendations.append(f"- Priority area: {title} needs immediate focus and concrete action plan")
+
+    # Market Analysis
+    market_analysis = [
+        "MARKET ANALYSIS:",
+        "- Market Size and Opportunity",
+        "- Competitive Landscape",
+        "- Market Entry Strategy",
+        "- Growth Potential",
+        "- Target Customer Segments"
+    ]
+
+    # Team Evaluation
+    team_evaluation = [
+        "TEAM EVALUATION:",
+        "- Leadership Capabilities",
+        "- Technical Expertise",
+        "- Industry Experience",
+        "- Track Record",
+        "- Team Composition"
+    ]
+
+    # Business Model Analysis
+    business_model = [
+        "BUSINESS MODEL ANALYSIS:",
+        "- Revenue Streams",
+        "- Cost Structure",
+        "- Scalability",
+        "- Market Fit",
+        "- Value Proposition"
+    ]
+
+    # Format the comprehensive analysis
+    analysis = [
+        "EXECUTIVE SUMMARY:",
+        f"Overall Score: {calculate_overall_score(data):.2f}/10",
+        "\nKEY STRENGTHS:",
+    ]
+    analysis.extend(strengths if strengths else ["- No specific strengths identified"])
+    analysis.extend([
+        "\nAREAS FOR IMPROVEMENT:",
+    ])
+    analysis.extend(improvements if improvements else ["- No significant improvement areas identified"])
+    analysis.extend([
+        "\nSTRATEGIC RECOMMENDATIONS:",
+    ])
+    analysis.extend(recommendations if recommendations else ["- Continue refining pitch strategy"])
+    analysis.extend([
+        "\n" + "\n".join(market_analysis),
+        "\n" + "\n".join(team_evaluation),
+        "\n" + "\n".join(business_model),
+    ])
+
+    # Call the AI model to get dynamic conclusions
+    ai_response = generate_summary(data)
+    analysis.append("CONCLUSION:")
+    analysis.append(ai_response)
+
+    # Add general feedback if available
     if data.get('generalFeedback'):
-        recommendations.append(data['generalFeedback'])
+        analysis.append(f"\nADDITIONAL INSIGHTS:\n{data['generalFeedback']}")
 
-    return f"STRENGTHS:\n{', '.join(strengths) or '1. No specific strengths identified'}\n\nAREAS FOR IMPROVEMENT:\n{', '.join(improvements) or '1. No significant improvement areas identified'}\n\nRECOMMENDATIONS:\n{', '.join(recommendations) or '1. Continue refining pitch strategy'}"
+    return "\n".join(analysis)
+
 
 
 @app.route("/summarize_feedback", methods=["POST"])
 def summarize_feedback():
     try:
-        # Get JSON data
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
         
-        # Generate summary
-        ai_summary = generate_summary(data)
-        
-        # Calculate overall score
-        overall_score = calculate_overall_score(data)
-        
-        # Extract scoring sections
-        scoring_sections = data.get('scoringSections', [])
-        
-        # Prepare CSV data
+        # Create a StringIO buffer to write CSV
         output = io.StringIO()
-        writer = csv.writer(output, lineterminator='\n')
+        csv_writer = csv.writer(output)
         
-        # Write metadata section
-        writer.writerow(['Pitch Evaluation Summary'])
-        writer.writerow([''])  # Empty row for spacing
-        writer.writerow(['Basic Information'])
-        writer.writerow(['Team Name', data.get('teamName', 'Not specified')])
-        writer.writerow(['Pitch Number', data.get('pitchNumber', 'N/A')])
-        writer.writerow(['Session', data.get('session', 'N/A')])
-        writer.writerow(['Overall Score', f"{overall_score:.2f}/10"])
-        writer.writerow([''])  # Empty row for spacing
-
-        # Write scoring sections
-        writer.writerow(['Detailed Scores'])
-        writer.writerow(['Category', 'Score', 'Feedback'])
-        for section in scoring_sections:
-            writer.writerow([
-                section.get('title', 'N/A'),
-                f"{section.get('score', 0):.1f}/10",
-                section.get('feedback', 'No feedback provided')
+        # CSV Headers
+        csv_writer.writerow([
+            'Category', 
+            'Score', 
+            'Feedback', 
+            'Strength/Improvement', 
+            'Recommendation'
+        ])
+        
+        # Prepare data for AI analysis
+        sections_data = {
+            'scoringSections': [
+                {
+                    'title': section['title'],
+                    'score': section['score'],
+                    'feedback': section['feedback']
+                } for section in data.get('feedback', [])
+            ]
+        }
+        
+        # Generate AI-driven insights
+        try:
+            ai_summary = generate_summary(sections_data)
+            overall_score = calculate_overall_score(sections_data)
+        except Exception as e:
+            logging.error(f"AI analysis failed: {str(e)}")
+            ai_summary = "Unable to generate comprehensive AI summary"
+            overall_score = sum(section['score'] for section in data.get('feedback', [])) / len(data.get('feedback', [1]))
+        
+        # Process feedback sections
+        for section in data.get('feedback', []):
+            csv_writer.writerow([
+                section.get('title', 'Unspecified'),
+                section.get('score', 'N/A'),
+                section.get('feedback', 'No feedback'),
+                'Strength' if section.get('score', 0) >= 7 else 'Improvement Area',
+                f"Recommend further development in {section.get('title', 'this area')}"
             ])
-        writer.writerow([''])  # Empty row for spacing
-
-        # Write general feedback
-        writer.writerow(['General Feedback'])
-        writer.writerow([data.get('generalFeedback', 'No general feedback provided')])
-        writer.writerow([''])  # Empty row for spacing
-
-        # Write AI Summary
-        writer.writerow(['AI Analysis'])
-        for paragraph in ai_summary.split('\n'):
-            if paragraph.strip():  # Only write non-empty paragraphs
-                writer.writerow([paragraph.strip()])
-
-        # Create CSV file in memory
+        
+        # Add AI-generated overall insights
+        csv_writer.writerow([
+            'Overall Analysis', 
+            f"{overall_score:.2f}", 
+            ai_summary.replace(',', ';'),  # Replace commas to avoid CSV parsing issues
+            'Comprehensive Assessment', 
+            'Strategic recommendations included in analysis'
+        ])
+        
+        # Seek to the beginning of the buffer
         output.seek(0)
         
+        # Return as a downloadable CSV file
         return send_file(
             io.BytesIO(output.getvalue().encode('utf-8')),
             mimetype='text/csv',
             as_attachment=True,
-            download_name='feedback_summary.csv'
+            download_name='pitch_analysis.csv'
         )
+
     except Exception as e:
         logging.error(f"Error processing feedback: {str(e)}", exc_info=True)
         return jsonify({"error": "An error occurred while processing the feedback"}), 500
+
+def calculate_overall_score(data):
+    """
+    Calculate the overall score based on available scoring sections.
+    
+    Args:
+        data (dict): Feedback data containing scoring sections
+    
+    Returns:
+        float: Calculated overall score
+    """
+    sections = data.get('scoringSections', [])
+    if not sections:
+        return 0
+    
+    # Calculate weighted average, assuming equal weight if not specified
+    total_score = sum(section.get('score', 0) for section in sections)
+    return total_score / len(sections)
 
 
 @app.route("/download_feedback_csv/<pitch_id>", methods=["GET"])
@@ -492,18 +636,31 @@ def submit_feedback():
     section_scores = data.get('sectionScores', {})
     raw_form_data = data.get('rawFormData', {})
     
+    # Check the requested format
+    accept_header = request.headers.get('Accept', '')
+    is_csv_requested = 'text/csv' in accept_header
+
     # Generate summary and overall score
     overall_score = calculate_overall_score({'sectionScores': section_scores})
     summary = generate_summary(data)  # Ensure summary is defined here
-    
+
     # Create response data
     response_data = {
         'feedback': overall_feedback or None,
         'overallScore': overall_score,
         'status': 'success',
-        'summary': summary
+        'summary': summary  # Ensure summary is included in the response
     }
-    
+
+    if is_csv_requested:
+        # Convert response data to CSV format
+        output = io.StringIO()
+        csv_writer = csv.DictWriter(output, fieldnames=response_data.keys())
+        csv_writer.writeheader()
+        csv_writer.writerow(response_data)
+        output.seek(0)
+        return output.getvalue(), 200, {'Content-Type': 'text/csv'}
+
     return jsonify(response_data), 200
 
 def create_csv_report(startup_id, round_id, judge_id, overall_feedback, section_scores, total_score, summary):
