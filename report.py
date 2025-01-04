@@ -1,29 +1,20 @@
 import os
 import textwrap
-from flask import Blueprint
-from groq import AsyncGroq, Groq
-from dotenv import load_dotenv 
+from flask import Blueprint, request, jsonify
+import openai
+import logging
 
-# Create a blueprint
 report_bp = Blueprint('report', __name__)
-load_dotenv()
 
-# Groq API setup
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+__all__ = ['report_bp', 'generate_feedback_summary']
+# Check if the API key is set
 
-# Function to clean up the AI response
-def clean_ai_response(response: str) -> str:
-    """
-    Clean up the AI response to remove asterisks and ensure the output is presentable.
-    """
-    return response.replace('*', '').strip()
 
-# Summarization function using Groq API with Gemini-Pro
 def generate_feedback_summary(feedback: dict):
+    from app import clean_ai_response
     """
     Summarize the judges' feedback for each startup using llama-8b-8192 model.
     """
-
     # Prepare the feedback prompt for Gemini-Pro
     prompt = textwrap.dedent(f"""
         Please generate a detailed and high-level summary for the following feedback for the startup:
@@ -47,7 +38,7 @@ def generate_feedback_summary(feedback: dict):
 
     try:
         # Request a summary from Gemini-Pro using the Groq API
-        chat_completion = client.chat.completions.create(
+        chat_completion = openai.chat.completions.create(
             messages=[{
                 "role": "user",
                 "content": prompt
@@ -60,28 +51,5 @@ def generate_feedback_summary(feedback: dict):
         return cleaned_summary
 
     except Exception as e:
+        logging.error(f"Error generating feedback summary: {str(e)}")
         return f"Error generating feedback summary: {str(e)}"
-
-# Flask route to generate feedback summary
-@report_bp.route('/generate_summary', methods=['POST'])
-def generate_summary():
-    """
-    API endpoint to generate a summary of feedback for a startup.
-    """
-    try:
-        # Parse incoming JSON request
-        from flask import request, jsonify
-        data = request.json
-        feedback = data.get("feedback")
-
-        if not feedback:
-            return jsonify({"error": "Feedback data is required."}), 400
-
-        # Generate the summary
-        summary = generate_feedback_summary(feedback)
-        
-        return jsonify({"summary": summary}), 200
-
-    except Exception as e:
-        from flask import jsonify
-        return jsonify({"error": str(e)}), 500

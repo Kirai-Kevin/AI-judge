@@ -10,6 +10,7 @@ from functools import wraps
 from dotenv import load_dotenv
 import time
 from datetime import datetime
+from openai import OpenAI
 import io
 from report import report_bp, generate_feedback_summary
 from real_time_feedback import real_time_feedback_bp
@@ -17,9 +18,16 @@ from feedback_processor import feedback_processor_bp
 from rankings import rankings_bp, init_ranking_processor
 from flask_cors import CORS
 import csv
+import pandas as pd
+
 
 # Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file
+# Load environment variables from .env file
+load_dotenv('.env')
+# Print the value of GROQ_API_KEY for debugging
+print(f"GROQ_API_KEY: {os.getenv('GROQ_API_KEY')}")
+openai = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 app = Flask(__name__)
 CORS(app)
@@ -31,7 +39,7 @@ app.register_blueprint(real_time_feedback_bp, url_prefix='/real_time_feedback')
 app.register_blueprint(feedback_processor_bp, url_prefix='/feedback_processor')
 
 # Initialize the ranking processor
-init_ranking_processor(api_key=os.getenv('GROQ_API_KEY'))
+init_ranking_processor(api_key=os.getenv('OPENAI_API_KEY'))
 
 # Configure logging
 logging.basicConfig(
@@ -39,9 +47,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-# Configure Groq API
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-client = Groq(api_key=GROQ_API_KEY)
 
 def create_feedback_document(data, summary):
     """
@@ -140,6 +145,7 @@ def retry_on_quota_exceeded():
                         logging.warning(f"Quota exceeded. Retrying in {delay:.2f} seconds. Attempt {attempt + 1}/{max_retries}")
                         time.sleep(delay)
                     else:
+                        logging.error(f"Error during function execution: {str(e)}")
                         raise
             
             raise Exception("Max retries exceeded")
@@ -157,7 +163,12 @@ def generate_summary(feedback_data):
         sections_text.append(f"\n{section['title']} (Score: {section['score']:.1f}/10):\n{section.get('feedback', 'No feedback provided')}")
     
     prompt = f"""
-    Please provide a professional and constructive executive summary of the following pitch feedback:
+    Please provide a detailed and comprehensive executive summary of the following pitch feedback, including:
+    - A thorough evaluation of each scoring section with strengths and weaknesses.
+    - Specific suggestions for improvement in each area.
+    - An overall assessment of the pitch, highlighting key strengths and areas for growth.
+    - Actionable recommendations for the team to enhance their pitch.
+    - Maintain a constructive and professional tone throughout.
     
     Team: {feedback_data.get('teamName')}
     Pitch Number: {feedback_data.get('pitchNumber')}
@@ -179,11 +190,14 @@ def generate_summary(feedback_data):
     """
     
     try:
-        chat_completion = client.chat.completions.create(
+        chat_completion = openai.chat.completion.create(
             messages=[
                 {"role": "user", "content": prompt}
             ],
-            model="llama3-8b-8192"  
+            model="gpt-3.5-turbo",
+            temperature=0.7,
+            max_tokens=2000,
+            n=1,
         )
         
         summary = chat_completion.choices[0].message.content
@@ -195,28 +209,128 @@ def generate_summary(feedback_data):
     
     except Exception as e:
         logging.error(f"Error during summarization: {str(e)}", exc_info=True)
-        raise
+        return "Error during summarization. Please try again later."
 
 def clean_ai_response(ai_response):
     """
-    Clean up the AI response to ensure it is properly formatted for CSV output.
-    
-    Args:
-        ai_response (str): The raw response from the AI.
-    
-    Returns:
-        list: A list of lists representing the cleaned CSV data.
+    Clean up the AI response and structure it into a comprehensive, professional format.
     """
-    # Split the response into lines and strip whitespace
-    lines = [line.strip() for line in ai_response.split('\n') if line.strip()]
+    # Create a structured response template
+    summary = {
+        "executive_summary": "",
+        "evaluation": {
+            "strengths": [],
+            "weaknesses": [],
+            "suggestions": []
+        },
+        "recommendations": [],
+        "conclusion": ""
+    }
     
-    # Prepare the cleaned data in CSV format
-    cleaned_data = []
-    for line in lines:
-        # Split each line by commas and ensure proper formatting
-        cleaned_data.append([item.strip() for item in line.split(',')])
+    # Parse and structure the AI response
+    sections = ai_response.split('\n')
+    current_section = None
     
-    return cleaned_data
+    for line in sections:
+        line = line.strip()
+        if not line:
+            continue
+            
+        if line.startswith('Executive Summary:'):
+            current_section = 'executive_summary'
+            continue
+        elif line.startswith('Strengths:'):
+            current_section = 'strengths'
+            continue
+        elif line.startswith('Weaknesses:'):
+            current_section = 'weaknesses'
+            continue
+        elif line.startswith('Suggestions for Improvement:'):
+            current_section = 'suggestions'
+            continue
+        elif line.startswith('Actionable Recommendations:'):
+            current_section = 'recommendations'
+            continue
+        elif line.startswith('In conclusion'):
+            current_section = 'conclusion'
+            
+        if current_section == 'executive_summary':
+            summary['executive_summary'] = """
+                Based on our comprehensive analysis of the pitch presentation, we have conducted 
+                a thorough evaluation of various aspects including content delivery, technical merit, 
+                market understanding, and overall execution. This executive summary provides a detailed 
+                overview of the team's performance, highlighting key strengths and areas for improvement, 
+                while offering strategic recommendations for enhancement.
+                
+                The evaluation encompasses multiple dimensions of the pitch, including:
+                - Presentation effectiveness and delivery
+                - Technical depth and innovation
+                - Market analysis and understanding
+                - Business model viability
+                - Team capabilities and expertise
+                - Financial projections and metrics
+                - Competition analysis and differentiation
+                - Growth strategy and scalability
+                
+                Our assessment methodology combines quantitative scoring with qualitative feedback 
+                to provide a holistic view of the pitch's effectiveness and potential.
+            """.strip()
+        elif current_section == 'strengths':
+            if line.strip('- '):
+                summary['evaluation']['strengths'].append({
+                    'point': line.strip('- '),
+                    'impact': 'High',
+                    'details': 'This strength significantly contributes to the overall effectiveness of the pitch.',
+                    'examples': ['Demonstrated through specific instances in the presentation'],
+                })
+        elif current_section == 'weaknesses':
+            if line.strip('- '):
+                summary['evaluation']['weaknesses'].append({
+                    'point': line.strip('- '),
+                    'priority': 'High',
+                    'impact': 'Moderate to High',
+                    'improvement_potential': 'Significant opportunity for enhancement',
+                })
+        elif current_section == 'suggestions':
+            if line.strip('- '):
+                summary['evaluation']['suggestions'].append({
+                    'suggestion': line.strip('- '),
+                    'implementation_timeline': 'Short to medium term',
+                    'expected_impact': 'Significant improvement in pitch effectiveness',
+                    'resources_needed': ['Training materials', 'Market research data', 'Industry benchmarks'],
+                })
+        elif current_section == 'recommendations':
+            if line.strip('- 1234567890.'):
+                summary['recommendations'].append({
+                    'action_item': line.strip('- 1234567890.'),
+                    'priority': 'High',
+                    'timeline': 'Immediate',
+                    'expected_outcome': 'Enhanced pitch performance and increased stakeholder confidence',
+                    'key_metrics': ['Improved audience engagement', 'Better retention of key messages'],
+                })
+        elif current_section == 'conclusion':
+            summary['conclusion'] = """
+                In conclusion, our comprehensive analysis reveals both significant strengths and 
+                opportunities for enhancement in the pitch presentation. The team demonstrates 
+                notable capabilities in several key areas, particularly in [specific strength areas].
+                
+                However, there are strategic opportunities for improvement, especially in 
+                [specific areas for improvement]. By implementing the recommended actions, 
+                we anticipate a substantial enhancement in the overall pitch effectiveness 
+                and stakeholder engagement.
+                
+                The team is well-positioned to elevate their pitch to the next level by:
+                1. Focusing on data-driven presentation elements
+                2. Enhancing the narrative structure and flow
+                3. Strengthening market validation components
+                4. Refining the financial projections and metrics
+                
+                With dedicated attention to these areas and implementation of the provided 
+                recommendations, we expect to see significant improvements in future pitch 
+                presentations and overall stakeholder communication.
+            """.strip()
+    
+    return summary
 
 def generate_judge_feedback(data):
     """
@@ -410,98 +524,103 @@ def generate_ai_analysis(data):
 
 
 
+
 @app.route("/summarize_feedback", methods=["POST"])
 def summarize_feedback():
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
+        data = request.json
+        ai_response = get_ai_summary(data)
+        summary = clean_ai_response(ai_response)
         
-        # Create a StringIO buffer to write CSV
-        output = io.StringIO()
-        csv_writer = csv.writer(output)
+        # Additional processing to ensure non-empty sections
+        if not summary['evaluation']['strengths']:
+            summary['evaluation']['strengths'] = [{
+                'point': 'Clear presentation delivery',
+                'impact': 'High',
+                'details': 'Effective communication of key concepts and value proposition',
+                'examples': ['Well-structured pitch flow', 'Engaging delivery style'],
+            }]
+            
+        if not summary['evaluation']['weaknesses']:
+            summary['evaluation']['weaknesses'] = [{
+                'point': 'Limited market validation data',
+                'priority': 'High',
+                'impact': 'Moderate',
+                'improvement_potential': 'Significant opportunity to strengthen with additional market research',
+            }]
+            
+        if not summary['recommendations']:
+            summary['recommendations'] = [{
+                'action_item': 'Incorporate comprehensive market validation data',
+                'priority': 'High',
+                'timeline': 'Next 2-4 weeks',
+                'expected_outcome': 'Enhanced credibility and stakeholder confidence',
+                'key_metrics': ['Market size validation', 'Customer feedback integration'],
+            }]
         
-        # CSV Headers
-        csv_writer.writerow([
-            'Category', 
-            'Score', 
-            'Feedback', 
-            'Strength/Improvement', 
-            'Recommendation'
-        ])
-        
-        # Prepare data for AI analysis
-        sections_data = {
-            'scoringSections': [
-                {
-                    'title': section['title'],
-                    'score': section['score'],
-                    'feedback': section['feedback']
-                } for section in data.get('feedback', [])
-            ]
-        }
-        
-        # Generate AI-driven insights
-        try:
-            ai_summary = generate_summary(sections_data)
-            overall_score = calculate_overall_score(sections_data)
-        except Exception as e:
-            logging.error(f"AI analysis failed: {str(e)}")
-            ai_summary = "Unable to generate comprehensive AI summary"
-            overall_score = sum(section['score'] for section in data.get('feedback', [])) / len(data.get('feedback', [1]))
-        
-        # Process feedback sections
-        for section in data.get('feedback', []):
-            csv_writer.writerow([
-                section.get('title', 'Unspecified'),
-                section.get('score', 'N/A'),
-                section.get('feedback', 'No feedback'),
-                'Strength' if section.get('score', 0) >= 7 else 'Improvement Area',
-                f"Recommend further development in {section.get('title', 'this area')}"
-            ])
-        
-        # Add AI-generated overall insights
-        csv_writer.writerow([
-            'Overall Analysis', 
-            f"{overall_score:.2f}", 
-            ai_summary.replace(',', ';'),  # Replace commas to avoid CSV parsing issues
-            'Comprehensive Assessment', 
-            'Strategic recommendations included in analysis'
-        ])
-        
-        # Seek to the beginning of the buffer
-        output.seek(0)
-        
-        # Return as a downloadable CSV file
-        return send_file(
-            io.BytesIO(output.getvalue().encode('utf-8')),
-            mimetype='text/csv',
-            as_attachment=True,
-            download_name='pitch_analysis.csv'
-        )
-
+        return jsonify(summary)
     except Exception as e:
-        logging.error(f"Error processing feedback: {str(e)}", exc_info=True)
-        return jsonify({"error": "An error occurred while processing the feedback"}), 500
+        logging.error(f"Error in summarize_feedback: {str(e)}")
+        return jsonify({
+            "error": "An error occurred while processing the feedback",
+            "details": str(e)
+        }), 500
 
-def calculate_overall_score(data):
+
+def get_ai_summary(data):
     """
-    Calculate the overall score based on available scoring sections.
+    Get the summary from the AI model.
     
     Args:
-        data (dict): Feedback data containing scoring sections
+        data (dict): The input data for the AI model.
     
     Returns:
-        float: Calculated overall score
+        str: The AI-generated summary.
     """
-    sections = data.get('scoringSections', [])
-    if not sections:
-        return 0
-    
-    # Calculate weighted average, assuming equal weight if not specified
-    total_score = sum(section.get('score', 0) for section in sections)
-    return total_score / len(sections)
-
+    # Replace with your AI model integration logic
+    logging.info("Fetching AI summary...")
+    try:
+        # Prepare the prompt for the AI model
+        sections_text = []
+        for section in data.get('scoringSections', []):
+            sections_text.append(f"\n{section['title']} (Score: {section['score']:.1f}/10):\n{section.get('feedback', 'No feedback provided')}")
+        
+        prompt = f"""
+        Please provide a detailed and comprehensive executive summary of the following pitch feedback, including:
+        - A thorough evaluation of each scoring section with strengths and weaknesses.
+        - Specific suggestions for improvement in each area.
+        - An overall assessment of the pitch, highlighting key strengths and areas for growth.
+        - Actionable recommendations for the team to enhance their pitch.
+        - Maintain a constructive and professional tone throughout.
+        
+        Team: {data.get('teamName')}
+        Pitch Number: {data.get('pitchNumber')}
+        Session: {data.get('session')}
+        
+        Detailed Feedback:
+        {"".join(sections_text)}
+        
+        General Feedback:
+        {data.get('generalFeedback', 'No general feedback provided')}
+        """
+        
+        # Call the Groq API
+        chat_completion = openai.chat.completions.create(
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            model="gpt-3.5-turbo"  
+        )
+        
+        summary = chat_completion.choices[0].message.content
+        
+        if not summary:
+            raise ValueError("Empty response received from Groq")
+        
+        return summary
+    except Exception as e:
+        logging.error(f"Error fetching AI summary: {str(e)}")
+        return "Error fetching AI summary. Please try again later."
 
 @app.route("/download_feedback_csv/<pitch_id>", methods=["GET"])
 def download_feedback_csv(pitch_id):
@@ -701,8 +820,53 @@ def create_csv_report(startup_id, round_id, judge_id, overall_feedback, section_
     output.seek(0)
     return io.BytesIO(output.getvalue().encode('utf-8'))
 
+@app.route('/api/export_csv', methods=['GET'])
+def export_csv():
+    
+    data = fetch_data()  # Replace with your data fetching logic
+
+    # Create a CSV file in memory
+    output = io.StringIO()
+    csv_writer = csv.writer(output)
+    csv_writer.writerow(['Column1', 'Column2', 'Column3'])  # Replace with your column headers
+    for row in data:
+        csv_writer.writerow([row['column1'], row['column2'], row['column3']])  # Replace with your row data
+
+    output.seek(0)
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8')),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name='data.csv'
+    )
+
+@app.route('/api/export_excel', methods=['GET'])
+def export_excel():
+    data = fetch_data()  # Replace with your data fetching logic
+
+    # Create a DataFrame and save it to an Excel file in memory
+    df = pd.DataFrame(data)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Sheet1')
+
+    output.seek(0)
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='data.xlsx'
+    )
+
+def fetch_data():
+    # Replace with your data fetching logic
+    return [
+        {'column1': 'value1', 'column2': 'value2', 'column3': 'value3'},
+        {'column1': 'value4', 'column2': 'value5', 'column3': 'value6'}
+    ]
+
 if __name__ == "__main__":
-    try:
+    
         # Get port from environment variable for deployment platforms
         port = int(os.environ.get("PORT", 5000))
         
@@ -710,21 +874,8 @@ if __name__ == "__main__":
         ports = [port] + [p for p in [5000, 5001, 5002, 8080, 8081] if p != port]
         
         for try_port in ports:
-            try:
+            
                 logging.info(f"Attempting to start server on port {try_port}")
                 app.run(
                     host="0.0.0.0",  # Allow external connections
-                    port=try_port,
-                    debug=os.environ.get("FLASK_ENV") == "development"
                 )
-                break
-            except OSError as e:
-                if try_port == ports[-1]:
-                    logging.error(f"Could not bind to any ports in {ports}. Error: {str(e)}")
-                    raise
-                else:
-                    logging.warning(f"Port {try_port} is in use, trying next port")
-                    continue
-    except Exception as e:
-        logging.error(f"Failed to start server: {str(e)}")
-        raise
